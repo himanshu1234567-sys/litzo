@@ -1,23 +1,47 @@
 import twilio from "twilio";
 
-const accountSid = process.env.TWILIO_ACCOUNT_SID;
-const apiKeySid = process.env.TWILIO_API_KEY_SID;
-const apiKeySecret = process.env.TWILIO_API_KEY_SECRET;
-const verifySid = process.env.TWILIO_VERIFY_SID;
+/**
+ * Raw env values (string | undefined)
+ */
+const _accountSid = process.env.TWILIO_ACCOUNT_SID;
+const _apiKeySid = process.env.TWILIO_API_KEY_SID;
+const _apiKeySecret = process.env.TWILIO_API_KEY_SECRET;
+const _verifySid = process.env.TWILIO_VERIFY_SID;
 
-// safe check
-if (!accountSid || !apiKeySid || !apiKeySecret || !verifySid) {
-  throw new Error("Missing Twilio credentials in environment variables");
+/**
+ * Runtime validation + TypeScript narrowing
+ */
+if (!_accountSid || !_apiKeySid || !_apiKeySecret || !_verifySid) {
+  throw new Error("❌ Missing Twilio credentials in environment variables");
 }
 
-const twilioClient = twilio(apiKeySid, apiKeySecret, { accountSid });
+/**
+ * ✅ After this point TypeScript KNOWS these are strings
+ */
+const accountSid: string = _accountSid;
+const apiKeySid: string = _apiKeySid;
+const apiKeySecret: string = _apiKeySecret;
+const verifySid: string = _verifySid;
 
+/**
+ * Twilio client
+ */
+const twilioClient = twilio(apiKeySid, apiKeySecret, {
+  accountSid,
+});
+
+/**
+ * SEND OTP
+ */
 export async function sendOTP(phoneNumber: string) {
+  if (!phoneNumber) {
+    return { success: false, error: "Phone number is required" };
+  }
+
   try {
     const verification = await twilioClient.verify.v2
       .services(verifySid)
-      .verifications
-      .create({
+      .verifications.create({
         to: phoneNumber,
         channel: "sms",
       });
@@ -26,18 +50,27 @@ export async function sendOTP(phoneNumber: string) {
       success: verification.status === "pending",
     };
   } catch (error: any) {
-    return { success: false, error: error.message };
+    return {
+      success: false,
+      error: error?.message || "Failed to send OTP",
+    };
   }
 }
 
+/**
+ * VERIFY OTP
+ */
 export async function verifyOTP(phoneNumber: string, code: string) {
+  if (!phoneNumber || !code) {
+    return { success: false, error: "Phone number & code are required" };
+  }
+
   try {
     const result = await twilioClient.verify.v2
       .services(verifySid)
-      .verificationChecks
-      .create({
+      .verificationChecks.create({
         to: phoneNumber,
-        code: code,  // MUST BE `code`
+        code,
       });
 
     return {
@@ -45,6 +78,9 @@ export async function verifyOTP(phoneNumber: string, code: string) {
       error: result.status !== "approved" ? "Invalid OTP" : undefined,
     };
   } catch (error: any) {
-    return { success: false, error: error.message };
+    return {
+      success: false,
+      error: error?.message || "OTP verification failed",
+    };
   }
 }

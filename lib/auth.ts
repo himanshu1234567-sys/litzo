@@ -24,8 +24,10 @@ export function verifyToken(token: string) {
 }
 
 // SAVE TOKEN IN COOKIE
-export function setAuthCookie(token: string) {
-  const cookieStore = cookies();
+
+// SET COOKIE
+export async function setAuthCookie(token: string) {
+  const cookieStore = await cookies();
 
   cookieStore.set("auth-token", token, {
     httpOnly: true,
@@ -36,11 +38,10 @@ export function setAuthCookie(token: string) {
 }
 
 // CLEAR COOKIE
-export function clearAuthCookie() {
-  const cookieStore = cookies();
+export async function clearAuthCookie() {
+  const cookieStore = await cookies();
   cookieStore.delete("auth-token");
 }
-
 
 
 // GET LOGGED-IN USER (Used in API routes)

@@ -24,7 +24,7 @@ export async function DELETE(req: Request) {
     }
 
     cart.items = cart.items.filter(
-      (item) => item.serviceId.toString() !== serviceId
+      (item:any) => item.serviceId.toString() !== serviceId
     );
 
     cart.calculateTotal();

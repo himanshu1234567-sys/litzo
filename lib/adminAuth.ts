@@ -21,8 +21,8 @@ export function verifyAdminToken(token: string) {
 }
 
 // Set admin cookie
-export function setAdminCookie(token: string) {
-  const cookieStore = cookies();
+export async function setAdminCookie(token: string) {
+  const cookieStore = await cookies();
 
   cookieStore.set(ADMIN_COOKIE, token, {
     httpOnly: true,
@@ -33,6 +33,7 @@ export function setAdminCookie(token: string) {
 }
 
 // Clear admin cookie
-export function clearAdminCookie() {
-  cookies().delete(ADMIN_COOKIE);
+export async function clearAdminCookie() {
+  const cookieStore = await cookies();
+  cookieStore.delete(ADMIN_COOKIE);
 }

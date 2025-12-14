@@ -24,7 +24,7 @@ export async function PUT(req: Request) {
     }
 
     const itemIndex = cart.items.findIndex(
-      (i) => i.serviceId.toString() === serviceId
+      (i:any) => i.serviceId.toString() === serviceId
     );
 
     if (itemIndex === -1) {

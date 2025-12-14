@@ -19,7 +19,7 @@ export async function proxy(request: NextRequest) {
   try {
     const payload = await verifyToken(token)
 
-    if (!payload) {
+    if (!payload || typeof payload === "string") {
       const response = NextResponse.redirect(new URL("/", request.url))
       response.cookies.delete("auth-token")
       return response
