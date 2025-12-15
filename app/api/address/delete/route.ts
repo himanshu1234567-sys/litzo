@@ -1,3 +1,4 @@
+// app/api/address/delete/route.ts
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
@@ -8,25 +9,25 @@ export async function DELETE(req: Request) {
     await connectDB();
 
     const user = await getUserFromToken(req);
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { addressId } = await req.json();
 
-    const updatedUser = await User.findByIdAndUpdate(
-      user._id,
-      {
-        $pull: { addresses: { _id: addressId } }
-      },
-      { new: true }
+    user.addresses = user.addresses.filter(
+      (addr: any) => addr._id.toString() !== addressId
     );
 
-    return NextResponse.json({
-      success: true,
-      message: "Address deleted successfully"
-    });
+    // ensure one default
+    if (!user.addresses.some((a: any) => a.isDefault) && user.addresses.length) {
+      user.addresses[0].isDefault = true;
+    }
 
+    await user.save();
+
+    return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("Address Delete Error:", err);
+    console.error("DELETE ADDRESS ERROR:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

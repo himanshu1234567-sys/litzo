@@ -7,36 +7,43 @@ const AddressSchema = new Schema(
       enum: ["home", "work", "other"],
       default: "home",
     },
-    addressLine: { type: String, required: true },
+
+    addressLine: { type: String, required: true }, // full address text
     city: { type: String, required: true },
     state: { type: String, required: true },
     pincode: { type: String, required: true },
+
     landmark: { type: String },
+
     isDefault: { type: Boolean, default: false },
   },
   { _id: true }
 );
 
 const UserSchema = new Schema({
-  phone: { type: String },
+  phone: String,
 
-  email: { type: String },
-  password: { type: String },
-  role: { type: String, enum: ["user", "admin"], default: "user" },
+  email: String,
+  password: String,
 
-  firstName: { type: String },
-  lastName: { type: String },
+  role: {
+    type: String,
+    enum: ["user", "admin"],
+    default: "user",
+  },
 
-  isProfileCompleted: { type: Boolean, default: false },
+  firstName: String,
+  lastName: String,
 
   addresses: {
     type: [AddressSchema],
-    default: []
+    default: [],
   },
 
-  createdAt: { type: Date, default: Date.now }
-});
+  isProfileCompleted: { type: Boolean, default: false },
 
+  createdAt: { type: Date, default: Date.now },
+});
 
 export const User =
   mongoose.models.User || mongoose.model("User", UserSchema);

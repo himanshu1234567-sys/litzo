@@ -1,3 +1,4 @@
+// app/api/address/add/route.ts
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
@@ -8,42 +9,50 @@ export async function POST(req: Request) {
     await connectDB();
 
     const user = await getUserFromToken(req);
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { type, addressLine, city, state, pincode, landmark } = await req.json();
+    const {
+      type,
+      addressLine,
+      landmark,
+      city,
+      state,
+      pincode,
+      country = "India",
+     
+    } = await req.json();
 
     if (!addressLine || !city || !state || !pincode) {
       return NextResponse.json(
-        { error: "All address fields required" },
+        { error: "Required address fields missing" },
         { status: 400 }
       );
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      user._id,
-      {
-        $push: {
-          addresses: {
-            type,
-            addressLine,
-            city,
-            state,
-            pincode,
-            landmark,
-            isDefault: false,
-          },
-        },
-      },
-      { new: true }
-    );
+    // first address = default
+    const isFirst = user.addresses.length === 0;
+
+    user.addresses.push({
+      type,
+      addressLine,
+      landmark,
+      city,
+      state,
+      pincode,
+      country,
+    
+      isDefault: isFirst,
+    });
+
+    await user.save();
 
     return NextResponse.json({
       success: true,
-      message: "Address added successfully",
-      addresses: updatedUser.addresses,
+      addresses: user.addresses,
     });
   } catch (err) {
-    console.error("Address Add Error:", err);
+    console.error("ADD ADDRESS ERROR:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
