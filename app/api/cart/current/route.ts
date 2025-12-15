@@ -3,7 +3,7 @@ import { connectDB } from "@/lib/db";
 import { Cart } from "@/models/Cart";
 import { getUserFromToken } from "@/lib/auth";
 
-export async function DELETE(req: Request) {
+export async function GET(req: Request) {
   await connectDB();
 
   const user = await getUserFromToken(req);
@@ -11,10 +11,13 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  await Cart.deleteMany({
+  const cart = await Cart.findOne({
     userId: user._id,
     status: "DRAFT",
   });
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({
+    success: true,
+    cart: cart || null,
+  });
 }

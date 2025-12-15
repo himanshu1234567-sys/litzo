@@ -1,25 +1,62 @@
-import mongoose, { Schema, model, models } from "mongoose";
+import mongoose, { Schema, Types } from "mongoose";
+
+const CartItemSchema = new Schema({
+  serviceId: { type: Schema.Types.ObjectId, ref: "Service" },
+
+  title: String,
+  description: String,
+  category: String,
+  image: String,
+
+  price: Number,
+  discountPrice: Number,
+
+  unitLabel: String,
+  quantity: { type: Number, default: 1 },
+
+  baseDuration: Number,
+  durationUnit: Number,
+
+  includes: [String],
+  excludes: [String]
+});
 
 const CartSchema = new Schema(
   {
-    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
-    items: [
-      {
-        serviceId: { type: Schema.Types.ObjectId, ref: "Service", required: true },
-        title: String,
-        price: Number,
-        quantity: { type: Number, default: 1 }
-      }
-    ],
-    total: { type: Number, default: 0 }
+    userId: { type: Types.ObjectId, ref: "User", required: true },
+
+    items: {
+      type: [CartItemSchema],
+      default: [],
+    },
+
+    bookingDetails: {
+      addressId: { type: Types.ObjectId },
+      addressText: String,
+
+      receiverName: String,
+      receiverPhone: String,
+
+      slotDate: String, // "2025-12-14"
+      slotTime: String, // "05:00 PM"
+    },
+
+    bill: {
+      subTotal: { type: Number, default: 0 },
+      cleaningFee: { type: Number, default: 0 },
+      gst: { type: Number, default: 0 },
+      discount: { type: Number, default: 0 },
+      total: { type: Number, default: 0 },
+    },
+
+    status: {
+      type: String,
+      enum: ["DRAFT", "LOCKED"],
+      default: "DRAFT",
+    },
   },
   { timestamps: true }
 );
 
-CartSchema.methods.calculateTotal = function () {
-  this.total = this.items.reduce((sum: number, item: any) => {
-    return sum + item.price * item.quantity;
-  }, 0);
-};
-
-export const Cart = models.Cart || model("Cart", CartSchema);
+export const Cart =
+  mongoose.models.Cart || mongoose.model("Cart", CartSchema);
