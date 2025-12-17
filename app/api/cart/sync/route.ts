@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       userId: user._id,
       items: [],
       bookingDetails: {
-        receiverName: `${user.firstName || ""} ${user.lastName || ""}`.trim(),
+        receiverName: `${user.firstName || ""}`.trim(),
         receiverPhone: user.phone,
       },
       status: "DRAFT",

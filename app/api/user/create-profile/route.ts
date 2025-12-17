@@ -22,7 +22,7 @@ export async function POST(req: Request) {
 
     const { firstName, lastName, email } = await req.json();
 
-    if (!firstName || !lastName || !email) {
+    if (!firstName || !email) {
       return NextResponse.json(
         { error: "firstName, lastName, email required" },
         { status: 400 }
