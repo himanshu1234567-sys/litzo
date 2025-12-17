@@ -8,6 +8,7 @@ export async function POST(req: Request) {
   try {
     const { phone, otp } = await req.json();
 
+    // ✅ VALIDATION
     if (!phone || !otp) {
       return NextResponse.json(
         { error: "Phone & OTP are required" },
@@ -15,20 +16,22 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔐 Verify OTP
+    // ✅ VERIFY OTP
     const result = await verifyOTP(phone, otp);
-    if (!result.success) {
+    if (!result?.success) {
       return NextResponse.json(
         { error: "Invalid or expired OTP" },
         { status: 400 }
       );
     }
 
+    // ✅ CONNECT DB
     await connectDB();
 
+    // ✅ CHECK USER
     let user = await User.findOne({ phone });
 
-    // ⭐ FIRST TIME USER → CREATE
+    // 🟢 FIRST TIME USER
     if (!user) {
       user = await User.create({
         phone,
@@ -44,13 +47,16 @@ export async function POST(req: Request) {
 
       return NextResponse.json({
         success: true,
-        isSignup: 1, // 👈 ONLY ONCE
+        isSignup: 1,
         token: `Bearer ${token}`,
-        user,
+        user: {
+          phone: user.phone,
+          role: user.role,
+        },
       });
     }
 
-    // ⭐ EXISTING USER → ALWAYS LOGIN
+    // 🔵 EXISTING USER
     const token = createJWT({
       userId: user._id.toString(),
       phone,
@@ -59,21 +65,19 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      isSignup: 0, // 👈 ALWAYS 0 AFTER USER EXISTS
+      isSignup: 0,
       token: `Bearer ${token}`,
       user: {
-        firstName: user.firstName || "",
-        lastName: user.lastName || "",
-        email: user.email || "",
         phone: user.phone,
         role: user.role,
         isProfileCompleted: user.isProfileCompleted,
       },
     });
-  } catch (err) {
-    console.error("VERIFY OTP ERROR:", err);
+
+  } catch (err: any) {
+    console.error("VERIFY OTP ERROR FULL:", err);
     return NextResponse.json(
-      { error: "Server error" },
+      { error: err.message || "Server error" },
       { status: 500 }
     );
   }

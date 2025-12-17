@@ -19,11 +19,19 @@ const AddressSchema = new Schema(
   },
   { _id: true }
 );
-
 const UserSchema = new Schema({
-  phone: String,
+  phone: {
+    type: String,
+    required: true,
+    unique: true,
+  },
 
-  email: String,
+  email: {
+    type: String,
+    unique: true,
+    sparse: true, // ✅ allow multiple nulls
+  },
+
   password: String,
 
   role: {
@@ -40,10 +48,17 @@ const UserSchema = new Schema({
     default: [],
   },
 
-  isProfileCompleted: { type: Boolean, default: false },
+  isProfileCompleted: {
+    type: Boolean,
+    default: false,
+  },
 
-  createdAt: { type: Date, default: Date.now },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
 });
+
 
 export const User =
   mongoose.models.User || mongoose.model("User", UserSchema);

@@ -4,18 +4,18 @@ export function calculateBill(cart: any) {
   for (const item of cart.items) {
     const basePrice = item.discountPrice ?? item.price;
 
-    // Quantity based
-    if (item.unitLabel) {
+    // Quantity-based
+    if (item.unitLabel !== "Minutes") {
       subTotal += basePrice * item.quantity;
     }
 
-    // Duration based
-    if (item.baseDuration && item.durationUnit) {
-      const extraSlots =
-        (item.baseDuration - 30) / item.durationUnit;
-
+    // Minutes-based
+    if (item.unitLabel === "Minutes") {
+      const extraMinutes = Math.max(0, item.baseDuration - 30);
       const extraCost =
-        extraSlots > 0 ? extraSlots * item.pricePerUnit : 0;
+        item.pricePerUnit
+          ? (extraMinutes / item.durationUnit) * item.pricePerUnit
+          : 0;
 
       subTotal += basePrice + extraCost;
     }
