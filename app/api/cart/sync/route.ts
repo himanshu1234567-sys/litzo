@@ -19,18 +19,28 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  // 🔹 Get service from DB (VERY IMPORTANT)
+  // 🔹 FETCH SERVICE
   const service = await Service.findById(serviceId);
   if (!service) {
     return NextResponse.json({ error: "Service not found" }, { status: 404 });
   }
 
   let cart = await Cart.findOne({ userId: user._id });
+
+  // 🆕 CREATE CART IF NOT EXISTS
   if (!cart) {
-    cart = await Cart.create({ userId: user._id, items: [] });
+    cart = await Cart.create({
+      userId: user._id,
+      items: [],
+      bookingDetails: {
+        receiverName: `${user.firstName || ""} ${user.lastName || ""}`.trim(),
+        receiverPhone: user.phone,
+      },
+      status: "DRAFT",
+    });
   }
 
-  // 🔹 Update booking details (partial allowed)
+  // 🔹 UPDATE BOOKING DETAILS (PARTIAL)
   if (bookingDetails) {
     cart.bookingDetails = {
       ...cart.bookingDetails,
@@ -42,49 +52,58 @@ export async function POST(req: Request) {
     (i: any) => i.serviceId.toString() === serviceId
   );
 
-  // ================= ADD =================
+  // ===================== ADD =====================
   if (action === "ADD") {
     if (itemIndex === -1) {
-      // 🆕 First time add
+      // 🆕 FIRST TIME ADD
       cart.items.push({
         serviceId: service._id,
         title: service.title,
         description: service.description,
         category: service.category,
         image: service.image,
+
         price: service.price,
         discountPrice: service.discountPrice,
+
         unitLabel: service.unitLabel,
-        pricePerUnit: service.pricePerUnit,
-        durationUnit: service.durationUnit,
+        pricePerUnit: service.pricePerUnit || 0,
+        durationUnit: service.durationUnit || 0,
+
         baseDuration:
-          service.unitLabel === "Minutes" ? 30 : service.baseDuration ?? null,
+          service.unitLabel === "Minutes"
+            ? service.baseDuration || 30
+            : null,
+
         quantity: service.unitLabel === "Minutes" ? 0 : 1,
-        includes: service.includes,
-        excludes: service.excludes,
+
+        includes: service.includes || [],
+        excludes: service.excludes || [],
       });
     } else {
       const item = cart.items[itemIndex];
 
-      // 🔁 Quantity based
+      // 🔢 Quantity based
       if (item.unitLabel !== "Minutes") {
         item.quantity += 1;
       }
 
       // ⏱ Duration based
       if (item.unitLabel === "Minutes") {
-        item.baseDuration += item.durationUnit; // +15 every hit
+        item.baseDuration =
+          (item.baseDuration || 30) + item.durationUnit;
       }
     }
   }
 
-  // ================= REMOVE =================
+  // ===================== REMOVE =====================
   if (action === "REMOVE" && itemIndex !== -1) {
     const item = cart.items[itemIndex];
 
     if (item.unitLabel === "Minutes") {
       item.baseDuration -= item.durationUnit;
 
+      // ❌ Remove if below minimum
       if (item.baseDuration < 30) {
         cart.items.splice(itemIndex, 1);
       }
@@ -102,5 +121,8 @@ export async function POST(req: Request) {
 
   await cart.save();
 
-  return NextResponse.json({ success: true, cart });
+  return NextResponse.json({
+    success: true,
+    cart,
+  });
 }
