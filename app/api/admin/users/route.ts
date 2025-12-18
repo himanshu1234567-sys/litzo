@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
 import { verifyAdminToken } from "@/lib/adminAuth";
-;
 
 export async function GET(req: Request) {
   await connectDB();
@@ -19,7 +18,8 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const users = await User.find().select("-password");
+  // ✅ ONLY FETCH USERS WITH ROLE = "user"
+  const users = await User.find({ role: "user" }).select("-password");
 
   return NextResponse.json({
     success: true,
