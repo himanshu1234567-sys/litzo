@@ -5,9 +5,12 @@ const OrderSchema = new Schema(
     userId: { type: Types.ObjectId, ref: "User", required: true },
     cartId: { type: Types.ObjectId, ref: "Cart", required: true },
 
-    items: { type: Array, required: true }, // snapshot
+    items: { type: Array, required: true },
     bookingDetails: { type: Object, required: true },
     bill: { type: Object, required: true },
+
+    razorpayOrderId: String,
+    razorpayPaymentId: String,
 
     paymentStatus: {
       type: String,
