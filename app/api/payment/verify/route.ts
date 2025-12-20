@@ -1,41 +1,65 @@
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import { connectDB } from "@/lib/db";
 import { Order } from "@/models/Order";
-import { getUserFromToken } from "@/lib/auth";
-import { razorpay } from "@/lib/razorpay";
+import { Cart } from "@/models/Cart";
 
 export async function POST(req: Request) {
-  await connectDB();
+  try {
+    await connectDB();
 
-  const user = await getUserFromToken(req);
-  if (!user)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    } = await req.json();
 
-  const { orderId } = await req.json();
+    // 🔐 VERIFY SIGNATURE
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
+    const expectedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
+      .update(body)
+      .digest("hex");
 
-  const order = await Order.findOne({
-    _id: orderId,
-    userId: user._id,
-    paymentStatus: "PENDING",
-  });
+    if (expectedSignature !== razorpay_signature) {
+      return NextResponse.json(
+        { error: "Invalid signature" },
+        { status: 400 }
+      );
+    }
 
-  if (!order)
-    return NextResponse.json({ error: "Invalid order" }, { status: 400 });
+    // 📦 FIND ORDER
+    const order = await Order.findOne({
+      razorpayOrderId: razorpay_order_id,
+    });
 
-  const rpOrder = await razorpay.orders.create({
-    amount: order.bill.total * 100,
-    currency: "INR",
-    receipt: order._id.toString(),
-  });
+    if (!order) {
+      return NextResponse.json(
+        { error: "Order not found" },
+        { status: 404 }
+      );
+    }
 
-  order.razorpayOrderId = rpOrder.id;
-  await order.save();
+    // ✅ PAYMENT SUCCESS
+    order.paymentStatus = "SUCCESS";
+    order.orderStatus = "CONFIRMED";
+    order.razorpayPaymentId = razorpay_payment_id;
+    order.razorpaySignature = razorpay_signature;
 
-  return NextResponse.json({
-    success: true,
-    key: process.env.RAZORPAY_KEY_ID,
-    amount: order.bill.total,
-    currency: "INR",
-    razorpayOrderId: rpOrder.id,
-  });
+    await order.save();
+
+    // 🗑️ CLEAR CART (🔥 IMPORTANT 🔥)
+    await Cart.deleteOne({ _id: order.cartId });
+
+    return NextResponse.json({
+      success: true,
+      message: "Payment successful, order confirmed",
+    });
+  } catch (err) {
+    console.error("PAYMENT VERIFY ERROR:", err);
+    return NextResponse.json(
+      { error: "Server error" },
+      { status: 500 }
+    );
+  }
 }

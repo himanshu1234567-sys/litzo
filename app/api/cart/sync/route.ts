@@ -14,32 +14,35 @@ export async function POST(req: Request) {
   }
 
   const { serviceId, action, bookingDetails } = await req.json();
-
   if (!serviceId || !action) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  // 🔹 Get service from DB (VERY IMPORTANT)
   const service = await Service.findById(serviceId);
   if (!service) {
     return NextResponse.json({ error: "Service not found" }, { status: 404 });
   }
 
-let cart = await Cart.findOne({ userId: user._id });
+  // ✅ STEP 1: find latest DRAFT cart only
+let cart = await Cart.findOne({
+  userId: user._id,
+  status: "DRAFT",
+});
 
-  // 🆕 CREATE CART IF NOT EXISTS
+  // ✅ STEP 2: if no DRAFT cart → create new
   if (!cart) {
     cart = await Cart.create({
       userId: user._id,
       items: [],
       bookingDetails: {
-        receiverName: `${user.firstName || ""}`.trim(),
+        receiverName: user.firstName || "",
         receiverPhone: user.phone,
       },
       status: "DRAFT",
     });
   }
-  // 🔹 Update booking details (partial allowed)
+
+  // ✅ STEP 3: update booking details (partial)
   if (bookingDetails) {
     cart.bookingDetails = {
       ...cart.bookingDetails,
@@ -54,7 +57,6 @@ let cart = await Cart.findOne({ userId: user._id });
   // ================= ADD =================
   if (action === "ADD") {
     if (itemIndex === -1) {
-      // 🆕 First time add
       cart.items.push({
         serviceId: service._id,
         title: service.title,
@@ -75,14 +77,14 @@ let cart = await Cart.findOne({ userId: user._id });
     } else {
       const item = cart.items[itemIndex];
 
-      // 🔁 Quantity based
+      // Quantity based
       if (item.unitLabel !== "Minutes") {
         item.quantity += 1;
       }
 
-      // ⏱ Duration based
+      // Duration based
       if (item.unitLabel === "Minutes") {
-        item.baseDuration += item.durationUnit; // +15 every hit
+        item.baseDuration += item.durationUnit;
       }
     }
   }
@@ -106,9 +108,8 @@ let cart = await Cart.findOne({ userId: user._id });
     }
   }
 
-  // 🔢 FINAL BILL
+  // ✅ FINAL BILL
   calculateBill(cart);
-
   await cart.save();
 
   return NextResponse.json({ success: true, cart });
