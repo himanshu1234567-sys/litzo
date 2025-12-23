@@ -4,6 +4,7 @@ import { connectDB } from "@/lib/db";
 import { Order } from "@/models/Order";
 import { Cart } from "@/models/Cart";
 import { UserCoupon } from "@/models/UserCoupon";
+import { AdminNotification } from "@/models/AdminNotification";
 
 export async function POST(req: Request) {
   try {
@@ -15,11 +16,7 @@ export async function POST(req: Request) {
       razorpay_signature,
     } = await req.json();
 
-    if (
-      !razorpay_order_id ||
-      !razorpay_payment_id ||
-      !razorpay_signature
-    ) {
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
       return NextResponse.json(
         { error: "Missing payment params" },
         { status: 400 }
@@ -29,30 +26,11 @@ export async function POST(req: Request) {
     // 🔐 VERIFY SIGNATURE
     const body = `${razorpay_order_id}|${razorpay_payment_id}`;
     const expectedSignature = crypto
-      .createHmac(
-        "sha256",
-        process.env.RAZORPAY_KEY_SECRET!
-      )
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
       .update(body)
       .digest("hex");
 
-    if (expectedSignature !== razorpay_signature) {
-      // ❌ PAYMENT FAILED
-      await Order.updateOne(
-        { razorpayOrderId: razorpay_order_id },
-        {
-          paymentStatus: "FAILED",
-          orderStatus: "CANCELLED",
-        }
-      );
-
-      return NextResponse.json(
-        { error: "Invalid signature" },
-        { status: 400 }
-      );
-    }
-
-    // 📦 FIND ORDER
+    // 📦 FIND ORDER FIRST
     const order = await Order.findOne({
       razorpayOrderId: razorpay_order_id,
     });
@@ -69,8 +47,26 @@ export async function POST(req: Request) {
       return NextResponse.json({
         success: true,
         message: "Payment already verified",
+        orderId: order._id,
       });
     }
+
+    // ❌ SIGNATURE INVALID → PAYMENT FAILED
+    if (expectedSignature !== razorpay_signature) {
+      order.paymentStatus = "FAILED";
+      order.orderStatus = "CANCELLED";
+      await order.save();
+
+      return NextResponse.json(
+        { error: "Invalid signature" },
+        { status: 400 }
+      );
+    }
+    await AdminNotification.create({
+      type: "NEW_ORDER",
+      message: "New booking received",
+      orderId: order._id,
+    });
 
     // ✅ PAYMENT SUCCESS
     order.paymentStatus = "SUCCESS";
@@ -80,7 +76,7 @@ export async function POST(req: Request) {
 
     await order.save();
 
-    // 🎟️ MARK COUPON USED (IF ANY)
+    // 🎟️ MARK COUPON USED (IF APPLIED)
     if (order.bill?.coupon?.couponId) {
       await UserCoupon.updateOne(
         {
@@ -94,7 +90,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🗑️ DELETE CART (ONLY AFTER SUCCESS)
+    // 🗑️ DELETE CART ONLY AFTER SUCCESS
     await Cart.deleteOne({ _id: order.cartId });
 
     return NextResponse.json({
