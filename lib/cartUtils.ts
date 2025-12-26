@@ -1,23 +1,24 @@
+// lib/cartUtils.ts
 export function calculateBill(cart: any) {
+
+  if (!cart.bill) {
+    cart.bill = {};
+  }
+
   let subTotal = 0;
 
   for (const item of cart.items) {
-    const basePrice = item.discountPrice ?? item.price;
+    const price = item.discountPrice ?? item.price;
 
-    // Quantity-based
-    if (item.unitLabel !== "Minutes") {
-      subTotal += basePrice * item.quantity;
+    // 🟢 Duration-Based Service
+    if (item.unitLabel === "Minutes") {
+      const units = item.baseDuration / item.durationUnit;
+      subTotal += units * item.pricePerUnit;
     }
 
-    // Minutes-based
-    if (item.unitLabel === "Minutes") {
-      const extraMinutes = Math.max(0, item.baseDuration - 30);
-      const extraCost =
-        item.pricePerUnit
-          ? (extraMinutes / item.durationUnit) * item.pricePerUnit
-          : 0;
-
-      subTotal += basePrice + extraCost;
+    // 🟢 Quantity-Based Service
+    else {
+      subTotal += price * item.quantity;
     }
   }
 

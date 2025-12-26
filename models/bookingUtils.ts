@@ -1,4 +1,4 @@
-// lib/bookingUtils.ts
+// models/bookingUtils.ts
 
 // Convert "05:30 PM" → minutes
 export function timeToMinutes(time: string): number {

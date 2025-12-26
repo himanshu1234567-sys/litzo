@@ -24,10 +24,10 @@ export async function POST(req: Request) {
   }
 
   // ✅ STEP 1: find latest DRAFT cart only
-let cart = await Cart.findOne({
-  userId: user._id,
-  status: "DRAFT",
-});
+  let cart = await Cart.findOne({
+    userId: user._id,
+    status: "DRAFT",
+  });
 
   // ✅ STEP 2: if no DRAFT cart → create new
   if (!cart) {
@@ -38,9 +38,17 @@ let cart = await Cart.findOne({
         receiverName: user.firstName || "",
         receiverPhone: user.phone,
       },
+      bill: {
+        subTotal: 0,
+        gst: 0,
+        discount: 0,
+        cleaningFee: 0,
+        total: 0,
+      },
       status: "DRAFT",
     });
   }
+
 
   // ✅ STEP 3: update booking details (partial)
   if (bookingDetails) {
@@ -55,58 +63,87 @@ let cart = await Cart.findOne({
   );
 
   // ================= ADD =================
-  if (action === "ADD") {
-    if (itemIndex === -1) {
-      cart.items.push({
-        serviceId: service._id,
-        title: service.title,
-        description: service.description,
-        category: service.category,
-        image: service.image,
-        price: service.price,
-        discountPrice: service.discountPrice,
-        unitLabel: service.unitLabel,
-        pricePerUnit: service.pricePerUnit,
-        durationUnit: service.durationUnit,
-        baseDuration:
-          service.unitLabel === "Minutes" ? 30 : service.baseDuration ?? null,
-        quantity: service.unitLabel === "Minutes" ? 0 : 1,
-        includes: service.includes,
-        excludes: service.excludes,
-      });
-    } else {
-      const item = cart.items[itemIndex];
+if (action === "ADD") {
+  if (itemIndex === -1) {
 
-      // Quantity based
-      if (item.unitLabel !== "Minutes") {
-        item.quantity += 1;
-      }
+    const base = service.baseDuration ?? service.durationUnit;
 
-      // Duration based
-      if (item.unitLabel === "Minutes") {
-        item.baseDuration += item.durationUnit;
-      }
-    }
-  }
+    cart.items.push({
+      serviceId: service._id,
+      title: service.title,
+      description: service.description,
+      category: service.category,
+      image: service.image,
 
-  // ================= REMOVE =================
-  if (action === "REMOVE" && itemIndex !== -1) {
+      price: service.price,
+      discountPrice: service.discountPrice,
+
+      unitLabel: service.unitLabel,
+      pricePerUnit: service.pricePerUnit,
+      durationUnit: service.durationUnit,
+
+      // ⬇️ MAIN PART
+      baseDuration: base,
+      minDuration: base,   // 🔐 always stored once
+
+      quantity: 1,
+
+      includes: service.includes,
+      excludes: service.excludes,
+    });
+  } else {
     const item = cart.items[itemIndex];
 
     if (item.unitLabel === "Minutes") {
-      item.baseDuration -= item.durationUnit;
-
-      if (item.baseDuration < 30) {
-        cart.items.splice(itemIndex, 1);
-      }
+      item.baseDuration += item.durationUnit;
     } else {
-      item.quantity -= 1;
-
-      if (item.quantity <= 0) {
-        cart.items.splice(itemIndex, 1);
-      }
+      item.quantity += 1;
     }
   }
+}
+
+
+
+  // ================= REMOVE =================
+if (action === "ADD") {
+  if (itemIndex === -1) {
+
+    const base = service.baseDuration ?? service.durationUnit;
+
+    cart.items.push({
+      serviceId: service._id,
+      title: service.title,
+      description: service.description,
+      category: service.category,
+      image: service.image,
+
+      price: service.price,
+      discountPrice: service.discountPrice,
+
+      unitLabel: service.unitLabel,
+      pricePerUnit: service.pricePerUnit,
+      durationUnit: service.durationUnit,
+
+      // ⬇️ MAIN PART
+      baseDuration: base,
+      minDuration: base,   // 🔐 always stored once
+
+      quantity: 1,
+
+      includes: service.includes,
+      excludes: service.excludes,
+    });
+  } else {
+    const item = cart.items[itemIndex];
+
+    if (item.unitLabel === "Minutes") {
+      item.baseDuration += item.durationUnit;
+    } else {
+      item.quantity += 1;
+    }
+  }
+}
+
 
   // ✅ FINAL BILL
   calculateBill(cart);
