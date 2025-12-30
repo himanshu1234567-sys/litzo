@@ -47,6 +47,7 @@ const CartSchema = new Schema(
       gst: { type: Number, default: 0 },
       discount: { type: Number, default: 0 },
       total: { type: Number, default: 0 },
+      cleaningKitFee: { type: Number, default: 0 },
     },
 
     status: {
