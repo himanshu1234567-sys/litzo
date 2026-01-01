@@ -9,23 +9,44 @@ export async function GET(req: Request) {
 
     const user = await getUserFromToken(req);
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
     }
+
+    const now = new Date();
 
     const userCoupons = await UserCoupon.find({
       userId: user._id,
-      isUsed: false,
-    }).populate("couponId");
+    })
+      .populate({
+        path: "couponId",
+        match: {
+          isActive: true,
+          expiryDate: { $gte: now },
+        },
+      })
+      .lean();
 
-    // 🔥 SAFETY FILTER (very important)
+    // 🧹 Remove entries where coupon is deleted / inactive / expired
     const coupons = userCoupons
-      .filter((uc: any) => uc.couponId) // avoid null coupon
+      .filter((uc: any) => uc.couponId)
       .map((uc: any) => ({
+        couponUserMapId: uc._id,
         couponId: uc.couponId._id,
         code: uc.couponId.code,
-        discountAmount: uc.couponId.value,
+        type: uc.couponId.type, // FLAT | PERCENT
+        value: uc.couponId.value,
         minBillAmount: uc.couponId.minBillAmount,
-      }));
+        maxDiscount: uc.couponId.maxDiscount || null,
+        expiryDate: uc.couponId.expiryDate,
+        isActive: uc.couponId.isActive,
+        isUsed: uc.isUsed,
+        usedAt: uc.usedAt || null,
+      }))
+      // 🟢 Active & unused coupons first
+      .sort((a, b) => Number(a.isUsed) - Number(b.isUsed));
 
     return NextResponse.json({
       success: true,
@@ -34,7 +55,7 @@ export async function GET(req: Request) {
   } catch (err) {
     console.error("GET USER COUPONS ERROR:", err);
     return NextResponse.json(
-      { error: "Server error" },
+      { success: false, error: "Server error" },
       { status: 500 }
     );
   }
