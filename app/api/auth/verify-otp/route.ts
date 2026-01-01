@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     }
 
     // ⭐⭐⭐ APP REVIEWER / TEST LOGIN (NO TWILIO REQUIRED)
-    if (phone === "+919999999999") {
+    if (phone === "+91 9999999999") {
       if (otp !== "123456") {
         return NextResponse.json(
           { error: "Invalid OTP" },
