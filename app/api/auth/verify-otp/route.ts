@@ -4,23 +4,47 @@ import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
 import { createJWT } from "@/lib/jwt";
 
+const isDev = process.env.NODE_ENV !== "production";
+
+function errorResponse(
+  message: string,
+  status = 400,
+  errorCode = "UNKNOWN_ERROR",
+  debug?: any
+) {
+  return NextResponse.json(
+    {
+      success: false,
+      message,
+      errorCode,
+      ...(isDev && debug ? { debug } : {}),
+    },
+    { status }
+  );
+}
+
 export async function POST(req: Request) {
   try {
     const { phone, otp } = await req.json();
 
+    // 🔴 VALIDATION
     if (!phone || !otp) {
-      return NextResponse.json(
-        { error: "Phone & OTP are required" },
-        { status: 400 }
+      return errorResponse(
+        "Phone & OTP are required",
+        400,
+        "MISSING_FIELDS",
+        { phone, otp }
       );
     }
 
-    // ⭐⭐⭐ APP REVIEWER / TEST LOGIN (NO TWILIO REQUIRED)
-    if (phone === "+91 9999999999") {
+    // ⭐⭐⭐ APP REVIEWER / TEST LOGIN
+    if (phone === "+919999999999") {
       if (otp !== "123456") {
-        return NextResponse.json(
-          { error: "Invalid OTP" },
-          { status: 400 }
+        return errorResponse(
+          "Invalid OTP",
+          400,
+          "OTP_INVALID",
+          { phone }
         );
       }
 
@@ -44,7 +68,7 @@ export async function POST(req: Request) {
 
       return NextResponse.json({
         success: true,
-        isSignup: user.createdAt === user.updatedAt ? 1 : 0,
+        isSignup: 1, // ✅ ALWAYS 1 FOR REVIEWER
         token: `Bearer ${token}`,
         user: {
           phone: user.phone,
@@ -54,13 +78,15 @@ export async function POST(req: Request) {
       });
     }
 
-    // ⭐⭐⭐ NORMAL USERS → VERIFY WITH TWILIO
+    // ⭐⭐⭐ NORMAL USERS → TWILIO OTP VERIFY
     const result = await verifyOTP(phone, otp);
 
     if (!result?.success) {
-      return NextResponse.json(
-        { error: "Invalid or expired OTP" },
-        { status: 400 }
+      return errorResponse(
+        "Invalid or expired OTP",
+        400,
+        "OTP_VERIFICATION_FAILED",
+        result
       );
     }
 
@@ -68,7 +94,7 @@ export async function POST(req: Request) {
 
     let user = await User.findOne({ phone });
 
-    // FIRST TIME USER → CREATE
+    // 🆕 FIRST TIME USER
     if (!user) {
       user = await User.create({
         phone,
@@ -94,7 +120,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // EXISTING USER → LOGIN
+    // 🔁 EXISTING USER LOGIN
     const token = createJWT({
       userId: user._id.toString(),
       phone,
@@ -111,12 +137,17 @@ export async function POST(req: Request) {
         isProfileCompleted: user.isProfileCompleted,
       },
     });
-
   } catch (err: any) {
     console.error("VERIFY OTP ERROR FULL:", err);
-    return NextResponse.json(
-      { error: err?.message || "Server error" },
-      { status: 500 }
+
+    return errorResponse(
+      "Something went wrong",
+      500,
+      "SERVER_ERROR",
+      {
+        message: err?.message,
+        stack: err?.stack,
+      }
     );
   }
 }
