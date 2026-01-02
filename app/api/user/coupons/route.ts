@@ -1,3 +1,6 @@
+export const runtime = "nodejs";
+import "@/models";
+
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { getUserFromToken } from "@/lib/auth";
@@ -15,38 +18,43 @@ export async function GET(req: Request) {
       );
     }
 
-    const now = new Date();
-
     const userCoupons = await UserCoupon.find({
       userId: user._id,
     })
-      .populate({
-        path: "couponId",
-        match: {
-          isActive: true,
-          expiryDate: { $gte: now },
-        },
-      })
+      .populate("couponId")
       .lean();
 
-    // 🧹 Remove entries where coupon is deleted / inactive / expired
+    const now = new Date();
+
     const coupons = userCoupons
-      .filter((uc: any) => uc.couponId)
-      .map((uc: any) => ({
-        couponUserMapId: uc._id,
-        couponId: uc.couponId._id,
-        code: uc.couponId.code,
-        type: uc.couponId.type, // FLAT | PERCENT
-        value: uc.couponId.value,
-        minBillAmount: uc.couponId.minBillAmount,
-        maxDiscount: uc.couponId.maxDiscount || null,
-        expiryDate: uc.couponId.expiryDate,
-        isActive: uc.couponId.isActive,
-        isUsed: uc.isUsed,
-        usedAt: uc.usedAt || null,
-      }))
-      // 🟢 Active & unused coupons first
-      .sort((a, b) => Number(a.isUsed) - Number(b.isUsed));
+      .filter((uc: any) => uc.couponId) // coupon exists
+      .map((uc: any) => {
+        const c = uc.couponId;
+        const expiry = new Date(c.expiryDate);
+
+        const isExpired = expiry < now;
+        const isUsable = c.isActive && !isExpired && !uc.isUsed;
+
+        return {
+          couponUserMapId: uc._id,
+          couponId: c._id,
+          code: c.code,
+          type: c.type,
+          value: c.value,
+          minBillAmount: c.minBillAmount,
+          maxDiscount: c.maxDiscount ?? null,
+          expiryDate: c.expiryDate,
+
+          isActive: c.isActive,
+          isExpired,
+          isUsed: uc.isUsed,
+          isUsable,
+
+          usedAt: uc.usedAt ?? null,
+        };
+      })
+      // 🟢 usable first → unused → expired last
+      .sort((a, b) => Number(b.isUsable) - Number(a.isUsable));
 
     return NextResponse.json({
       success: true,

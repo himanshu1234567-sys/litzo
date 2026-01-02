@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+import "@/models"; // 👈 VERY IMPORTANT
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { Coupon } from "@/models/Coupon";
