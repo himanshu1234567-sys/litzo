@@ -40,6 +40,17 @@ export async function POST(req: Request) {
       );
     }
 
+    // 🔴 EMPTY CART CHECK
+    if (!cart.items || cart.items.length === 0) {
+      return NextResponse.json(
+        {
+          error: "Please add at least one service to cart before applying coupon",
+          code: "EMPTY_CART",
+        },
+        { status: 400 }
+      );
+    }
+
     // 🎟️ GET COUPON
     const coupon = await Coupon.findOne({
       code: couponCode,
@@ -67,13 +78,17 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔢 CALCULATE BILL FIRST (WITHOUT COUPON)
+    // 🔢 CALCULATE BILL FIRST
     calculateBill(cart);
 
-    if (cart.bill.subTotal < coupon.minBillAmount) {
+    // 🔴 MIN ORDER AMOUNT CHECK (MAIN FIX)
+    if (cart.bill.subTotal < coupon.minOrderAmount) {
       return NextResponse.json(
         {
-          error: `Minimum bill ₹${coupon.minBillAmount} required`,
+          error: `Coupon will be applicable on minimum order of ₹${coupon.minOrderAmount}`,
+          code: "MIN_ORDER_NOT_MET",
+          minOrderAmount: coupon.minOrderAmount,
+          currentAmount: cart.bill.subTotal,
         },
         { status: 400 }
       );
@@ -92,12 +107,16 @@ export async function POST(req: Request) {
       );
     }
 
+    // 🔴 SAFETY: discount cannot exceed subtotal
+    discountAmount = Math.min(discountAmount, cart.bill.subTotal);
+
     // 🧮 UPDATE BILL
     cart.bill.discount = discountAmount;
     cart.bill.total =
       cart.bill.subTotal +
       cart.bill.gst +
-      cart.bill.cleaningFee -
+      cart.bill.cleaningFee +
+      cart.bill.cleaningKitFee -
       discountAmount;
 
     // 🔖 SAVE APPLIED COUPON INFO
