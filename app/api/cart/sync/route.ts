@@ -23,13 +23,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Service not found" }, { status: 404 });
   }
 
-  // ✅ STEP 1: find latest DRAFT cart only
+  // ✅ Get latest DRAFT cart
   let cart = await Cart.findOne({
     userId: user._id,
     status: "DRAFT",
   });
 
-  // ✅ STEP 2: if no DRAFT cart → create new
+  // ✅ Create cart if not exists
   if (!cart) {
     cart = await Cart.create({
       userId: user._id,
@@ -49,8 +49,7 @@ export async function POST(req: Request) {
     });
   }
 
-
-  // ✅ STEP 3: update booking details (partial)
+  // ✅ Update booking details
   if (bookingDetails) {
     cart.bookingDetails = {
       ...cart.bookingDetails,
@@ -63,82 +62,94 @@ export async function POST(req: Request) {
   );
 
   // ================= ADD =================
-if (action === "ADD") {
-  if (itemIndex === -1) {
+  if (action === "ADD") {
+    if (itemIndex === -1) {
+      const base = service.baseDuration;
 
-    const base = service.baseDuration ?? service.durationUnit;
+      cart.items.push({
+        serviceId: service._id,
+        title: service.title,
+        description: service.description,
+        category: service.category,
+        image: service.image,
 
-    cart.items.push({
-      serviceId: service._id,
-      title: service.title,
-      description: service.description,
-      category: service.category,
-      image: service.image,
+        price: service.price,
+        discountPrice: service.discountPrice,
 
-      price: service.price,
-      discountPrice: service.discountPrice,
+        unitLabel: service.unitLabel,
 
-      unitLabel: service.unitLabel,
-      pricePerUnit: service.pricePerUnit,
-      durationUnit: service.durationUnit,
+        // 🔥 important for Minutes service
+        pricePerUnit:
+          service.unitLabel === "Minutes"
+            ? service.pricePerUnit ?? service.discountPrice ?? service.price
+            : service.price,
 
-      // ⬇️ MAIN PART
-      baseDuration: base,
-      minDuration: base,   // 🔐 always stored once
+        durationUnit: service.durationUnit,
 
-      quantity: 1,
+        baseDuration: base, // 🔐 DB base duration
+        quantity: 1,
 
-      includes: service.includes,
-      excludes: service.excludes,
-    });
-  } else {
-    const item = cart.items[itemIndex];
-
-    if (item.unitLabel === "Minutes") {
-      item.baseDuration += item.durationUnit;
+        includes: service.includes,
+        excludes: service.excludes,
+      });
     } else {
-      item.quantity += 1;
+      const item = cart.items[itemIndex];
+
+      if (item.unitLabel === "Minutes") {
+        item.baseDuration += item.durationUnit;
+      } else {
+        item.quantity += 1;
+      }
     }
   }
-}
-
-
 
   // ================= REMOVE =================
-// ================= REMOVE =================
-if (action === "REMOVE") {
-  if (itemIndex === -1) {
-    // nothing to remove
-  } else {
-    const item = cart.items[itemIndex];
+  if (action === "REMOVE") {
+    if (itemIndex !== -1) {
+      const item = cart.items[itemIndex];
 
-    // ⏱️ Duration based service
-    if (item.unitLabel === "Minutes") {
-      item.baseDuration -= item.durationUnit;
+      // ⏱️ Minutes-based service
+      if (item.unitLabel === "Minutes") {
+        const minDuration = service.baseDuration; // 🔥 DB is source of truth
 
-      // remove item if duration goes below minimum
-      if (item.baseDuration <= item.minDuration) {
-        cart.items.splice(itemIndex, 1);
+        if (item.baseDuration <= minDuration) {
+          // 🔥 remove service completely
+          cart.items.splice(itemIndex, 1);
+        } else {
+          item.baseDuration -= item.durationUnit;
+        }
       }
-    }
 
-    // 🔢 Quantity based service
-    else {
-      item.quantity -= 1;
-
-      // remove item if quantity becomes 0
-      if (item.quantity <= 0) {
-        cart.items.splice(itemIndex, 1);
+      // 🔢 Quantity-based service
+      else {
+        if (item.quantity <= 1) {
+          cart.items.splice(itemIndex, 1);
+        } else {
+          item.quantity -= 1;
+        }
       }
     }
   }
-}
 
+  // 🔒 HARD CLEANUP (for corrupted carts)
+  cart.items = cart.items.filter((item: any) => {
+    if (item.unitLabel === "Minutes") {
+      return item.baseDuration >= service.baseDuration;
+    }
+    return item.quantity > 0;
+  });
 
-
-  // ✅ FINAL BILL
+  // ✅ Recalculate bill
   calculateBill(cart);
+
+  // 🔐 Never allow negative totals
+  cart.bill.subTotal = Math.max(0, cart.bill.subTotal);
+  cart.bill.total = Math.max(0, cart.bill.total);
+
   await cart.save();
 
-  return NextResponse.json({ success: true, cart });
+  return NextResponse.json({
+    success: true,
+    cart,
+  });
 }
