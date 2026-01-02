@@ -105,44 +105,35 @@ if (action === "ADD") {
 
 
   // ================= REMOVE =================
-if (action === "ADD") {
+// ================= REMOVE =================
+if (action === "REMOVE") {
   if (itemIndex === -1) {
-
-    const base = service.baseDuration ?? service.durationUnit;
-
-    cart.items.push({
-      serviceId: service._id,
-      title: service.title,
-      description: service.description,
-      category: service.category,
-      image: service.image,
-
-      price: service.price,
-      discountPrice: service.discountPrice,
-
-      unitLabel: service.unitLabel,
-      pricePerUnit: service.pricePerUnit,
-      durationUnit: service.durationUnit,
-
-      // ⬇️ MAIN PART
-      baseDuration: base,
-      minDuration: base,   // 🔐 always stored once
-
-      quantity: 1,
-
-      includes: service.includes,
-      excludes: service.excludes,
-    });
+    // nothing to remove
   } else {
     const item = cart.items[itemIndex];
 
+    // ⏱️ Duration based service
     if (item.unitLabel === "Minutes") {
-      item.baseDuration += item.durationUnit;
-    } else {
-      item.quantity += 1;
+      item.baseDuration -= item.durationUnit;
+
+      // remove item if duration goes below minimum
+      if (item.baseDuration <= item.minDuration) {
+        cart.items.splice(itemIndex, 1);
+      }
+    }
+
+    // 🔢 Quantity based service
+    else {
+      item.quantity -= 1;
+
+      // remove item if quantity becomes 0
+      if (item.quantity <= 0) {
+        cart.items.splice(itemIndex, 1);
+      }
     }
   }
 }
+
 
 
   // ✅ FINAL BILL
