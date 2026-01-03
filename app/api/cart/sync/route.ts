@@ -36,6 +36,7 @@ export async function POST(req: Request) {
         cleaningFee: 0,
         total: 0,
       },
+       couponApplied: false, 
       status: "DRAFT",
     });
   }

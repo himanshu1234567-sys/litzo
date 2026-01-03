@@ -13,10 +13,7 @@ export async function POST(req: Request) {
     // 🔐 AUTH
     const user = await getUserFromToken(req);
     if (!user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { couponCode } = await req.json();
@@ -40,7 +37,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔴 EMPTY CART CHECK
+    // 🚫 EMPTY CART
     if (!cart.items || cart.items.length === 0) {
       return NextResponse.json(
         {
@@ -51,7 +48,18 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🎟️ GET COUPON
+    // 🚫 ALREADY APPLIED
+    if (cart.couponApplied) {
+      return NextResponse.json(
+        {
+          error: "Coupon already applied",
+          code: "COUPON_ALREADY_APPLIED",
+        },
+        { status: 400 }
+      );
+    }
+
+    // 🎟️ FIND COUPON
     const coupon = await Coupon.findOne({
       code: couponCode,
       isActive: true,
@@ -78,10 +86,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔢 CALCULATE BILL FIRST
+    // 🔢 CALCULATE BILL
     calculateBill(cart);
 
-    // 🔴 MIN ORDER AMOUNT CHECK (MAIN FIX)
+    // 🚫 MIN ORDER CHECK
     if (cart.bill.subTotal < coupon.minOrderAmount) {
       return NextResponse.json(
         {
@@ -94,7 +102,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 💸 APPLY DISCOUNT
+    // 💸 DISCOUNT
     let discountAmount = 0;
 
     if (coupon.type === "FLAT") {
@@ -107,7 +115,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔴 SAFETY: discount cannot exceed subtotal
     discountAmount = Math.min(discountAmount, cart.bill.subTotal);
 
     // 🧮 UPDATE BILL
@@ -119,7 +126,9 @@ export async function POST(req: Request) {
       cart.bill.cleaningKitFee -
       discountAmount;
 
-    // 🔖 SAVE APPLIED COUPON INFO
+    // ✅ MARK COUPON APPLIED
+    cart.couponApplied = true;
+
     cart.appliedCoupon = {
       couponId: coupon._id,
       code: coupon.code,
@@ -133,7 +142,7 @@ export async function POST(req: Request) {
       message: "Coupon applied successfully",
       cart,
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error("APPLY COUPON ERROR:", err);
     return NextResponse.json(
       { error: "Server error" },

@@ -1,35 +1,87 @@
 import mongoose, { Schema, Types } from "mongoose";
 
-const CartItemSchema = new Schema({
-  serviceId: { type: Schema.Types.ObjectId, ref: "Service" },
+/* ---------------- CART ITEM ---------------- */
+const CartItemSchema = new Schema(
+  {
+    serviceId: {
+      type: Schema.Types.ObjectId,
+      ref: "Service",
+      required: true,
+    },
 
-  title: String,
-  description: String,
-  category: String,
-  image: String,
+    title: { type: String, required: true },
+    description: String,
+    category: String,
+    image: String,
 
-  price: Number,
-  discountPrice: Number,
+    price: { type: Number, required: true },
+    discountPrice: Number,
 
-  unitLabel: String,
-  quantity: { type: Number, default: 1 },
+    unitLabel: { type: String, required: true },
 
-  baseDuration: Number,
-  durationUnit: Number,
+    // 🔢 quantity-based services
+    quantity: {
+      type: Number,
+      default: 1,
+      min: 1,
+    },
 
-  includes: [String],
-  excludes: [String]
-});
+    // ⏱️ minutes-based services
+    baseDuration: {
+      type: Number,
+      min: 0,
+    },
+    durationUnit: {
+      type: Number,
+      min: 1,
+    },
 
+    includes: {
+      type: [String],
+      default: [],
+    },
+    excludes: {
+      type: [String],
+      default: [],
+    },
+  },
+  { _id: true }
+);
+
+/* ---------------- CART ---------------- */
 const CartSchema = new Schema(
   {
-    userId: { type: Types.ObjectId, ref: "User", required: true },
+    userId: {
+      type: Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
 
     items: {
       type: [CartItemSchema],
       default: [],
     },
 
+    /* 🔖 Coupon flags */
+    couponApplied: {
+      type: Boolean,
+      default: false,
+    },
+
+    appliedCoupon: {
+      couponId: {
+        type: Schema.Types.ObjectId,
+        ref: "Coupon",
+      },
+      code: String,
+      discountAmount: {
+        type: Number,
+        default: 0,
+      },
+    },
+
+    /* 📦 Booking info */
     bookingDetails: {
       addressId: { type: Types.ObjectId },
       addressText: String,
@@ -37,10 +89,11 @@ const CartSchema = new Schema(
       receiverName: String,
       receiverPhone: String,
 
-      slotDate: String, // "2025-12-14"
-      slotTime: String, // "05:00 PM"
+      slotDate: String,
+      slotTime: String,
     },
 
+    /* 💰 Bill */
     bill: {
       subTotal: { type: Number, default: 0 },
       cleaningFee: { type: Number, default: 0 },
@@ -54,9 +107,16 @@ const CartSchema = new Schema(
       type: String,
       enum: ["DRAFT", "LOCKED"],
       default: "DRAFT",
+      index: true,
     },
   },
   { timestamps: true }
+);
+
+/* 🔐 One active cart per user */
+CartSchema.index(
+  { userId: 1, status: 1 },
+  { unique: true, partialFilterExpression: { status: "DRAFT" } }
 );
 
 export const Cart =

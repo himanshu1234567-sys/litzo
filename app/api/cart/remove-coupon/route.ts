@@ -8,54 +8,27 @@ export async function POST(req: Request) {
   try {
     await connectDB();
 
-    // 🔐 AUTH
     const user = await getUserFromToken(req);
     if (!user) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 🛒 GET CART
     const cart = await Cart.findOne({
       userId: user._id,
       status: "DRAFT",
     });
 
     if (!cart) {
-      return NextResponse.json(
-        { error: "Active cart not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Cart not found" }, { status: 404 });
     }
 
-    // ❌ NO COUPON APPLIED
-    if (!cart.appliedCoupon) {
-      return NextResponse.json(
-        {
-          success: true,
-          message: "No coupon applied",
-          cart,
-        }
-      );
-    }
-
-    // 🔥 REMOVE COUPON
-    cart.appliedCoupon = undefined;
-
-    // 🔄 RECALCULATE BILL (without coupon)
-    calculateBill(cart);
-
-    // 🔐 FORCE RESET DISCOUNT
+    // 🔥 REMOVE COUPON EFFECT
     cart.bill.discount = 0;
+    cart.appliedCoupon = null;
+    cart.couponApplied = false;
 
-    // 🔐 FORCE TOTAL RECALCULATION
-    cart.bill.total =
-      cart.bill.subTotal +
-      cart.bill.gst +
-      cart.bill.cleaningFee +
-      cart.bill.cleaningKitFee;
+    // 🔁 Recalculate bill
+    calculateBill(cart);
 
     await cart.save();
 
@@ -64,11 +37,8 @@ export async function POST(req: Request) {
       message: "Coupon removed successfully",
       cart,
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error("REMOVE COUPON ERROR:", err);
-    return NextResponse.json(
-      { error: "Server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
