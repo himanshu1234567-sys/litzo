@@ -23,21 +23,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Service not found" }, { status: 404 });
   }
 
-  // ✅ Get latest DRAFT cart
-  let cart = await Cart.findOne({
-    userId: user._id,
-    status: "DRAFT",
-  });
-
-  // ✅ Create cart if not exists
+  let cart = await Cart.findOne({ userId: user._id, status: "DRAFT" });
   if (!cart) {
     cart = await Cart.create({
       userId: user._id,
       items: [],
-      bookingDetails: {
-        receiverName: user.firstName || "",
-        receiverPhone: user.phone,
-      },
+      bookingDetails: {},
       bill: {
         subTotal: 0,
         gst: 0,
@@ -49,115 +40,86 @@ export async function POST(req: Request) {
     });
   }
 
-  // ✅ Update booking details
   if (bookingDetails) {
-    cart.bookingDetails = {
-      ...cart.bookingDetails,
-      ...bookingDetails,
-    };
+    cart.bookingDetails = { ...cart.bookingDetails, ...bookingDetails };
   }
 
   const itemIndex = cart.items.findIndex(
     (i: any) => i.serviceId.toString() === serviceId
   );
 
- if (action === "ADD") {
-  if (itemIndex === -1) {
-    const base = service.baseDuration ?? service.durationUnit;
+  const isMinutes = service.unitLabel === "Minutes";
+  const hasBaseDuration = typeof service.baseDuration === "number";
 
-    cart.items.push({
-      serviceId: service._id,
-      title: service.title,
-      description: service.description,
-      category: service.category,
-      image: service.image,
+  // ================= ADD =================
+  if (action === "ADD") {
+    if (itemIndex === -1) {
+      cart.items.push({
+        serviceId: service._id,
+        title: service.title,
+        description: service.description,
+        category: service.category,
+        image: service.image,
 
-      price: service.price,
-      discountPrice: service.discountPrice,
+        unitLabel: service.unitLabel,
+        durationUnit: service.durationUnit ?? 1,
 
-      unitLabel: service.unitLabel,
-      pricePerUnit:
-        service.unitLabel === "Minutes"
-          ? service.pricePerUnit ?? service.price
-          : service.price,
+        // 🔥 CORE FIX
+        baseDuration: isMinutes && hasBaseDuration ? service.baseDuration : undefined,
+        minDuration: isMinutes && hasBaseDuration ? service.baseDuration : undefined,
 
-      durationUnit: service.durationUnit,
+        pricePerUnit:
+          isMinutes && hasBaseDuration
+            ? service.pricePerUnit ?? service.price
+            : service.discountPrice ?? service.price,
 
-      baseDuration: base,
-      minDuration: base, // 🔐 IMPORTANT
+        price: service.price,
+        discountPrice: service.discountPrice,
 
-      quantity: 1,
+        quantity: 1,
 
-      includes: service.includes,
-      excludes: service.excludes,
-    });
-  } else {
-    const item = cart.items[itemIndex];
-
-    if (item.unitLabel === "Minutes") {
-      item.baseDuration += item.durationUnit;
+        includes: service.includes,
+        excludes: service.excludes,
+      });
     } else {
-      item.quantity += 1;
+      const item = cart.items[itemIndex];
+
+      if (item.unitLabel === "Minutes" && item.baseDuration) {
+        item.baseDuration += item.durationUnit;
+      } else {
+        item.quantity += 1;
+      }
     }
   }
-}
 
-
-// ================= REMOVE =================
-// ================= REMOVE =================
-if (action === "REMOVE") {
-  if (itemIndex === -1) {
-    // nothing to remove
-  } else {
+  // ================= REMOVE =================
+  if (action === "REMOVE" && itemIndex !== -1) {
     const item = cart.items[itemIndex];
 
-    // ⏱️ Minutes-based service
-    if (item.unitLabel === "Minutes") {
-      const min = item.minDuration; // DB se aaya hua
+    // ⏱️ Duration-based
+    if (item.unitLabel === "Minutes" && item.baseDuration) {
       const next = item.baseDuration - item.durationUnit;
 
-      // 🔥 REMOVE ITEM if minimum reached
-      if (next < min || next === min) {
+      if (next < item.minDuration) {
         cart.items.splice(itemIndex, 1);
       } else {
         item.baseDuration = next;
       }
     }
-
-    // 🔢 Quantity-based service
+    // 🔢 Quantity-based (Dusting INCLUDED)
     else {
-      const nextQty = item.quantity - 1;
-
-      if (nextQty <= 0) {
+      item.quantity -= 1;
+      if (item.quantity <= 0) {
         cart.items.splice(itemIndex, 1);
-      } else {
-        item.quantity = nextQty;
       }
     }
   }
-}
 
+  // ❌ REMOVE THIS (BIGGEST BUG)
+  // ❌ cart.items = cart.items.filter(...)
 
-
-  // 🔒 HARD CLEANUP (for corrupted carts)
-  cart.items = cart.items.filter((item: any) => {
-    if (item.unitLabel === "Minutes") {
-      return item.baseDuration >= service.baseDuration;
-    }
-    return item.quantity > 0;
-  });
-
-  // ✅ Recalculate bill
   calculateBill(cart);
-
-  // 🔐 Never allow negative totals
-  cart.bill.subTotal = Math.max(0, cart.bill.subTotal);
-  cart.bill.total = Math.max(0, cart.bill.total);
-
   await cart.save();
 
-  return NextResponse.json({
-    success: true,
-    cart,
-  });
+  return NextResponse.json({ success: true, cart });
 }
