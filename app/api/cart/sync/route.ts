@@ -61,75 +61,83 @@ export async function POST(req: Request) {
     (i: any) => i.serviceId.toString() === serviceId
   );
 
-  // ================= ADD =================
-  if (action === "ADD") {
-    if (itemIndex === -1) {
-      const base = service.baseDuration;
+ if (action === "ADD") {
+  if (itemIndex === -1) {
+    const base = service.baseDuration ?? service.durationUnit;
 
-      cart.items.push({
-        serviceId: service._id,
-        title: service.title,
-        description: service.description,
-        category: service.category,
-        image: service.image,
+    cart.items.push({
+      serviceId: service._id,
+      title: service.title,
+      description: service.description,
+      category: service.category,
+      image: service.image,
 
-        price: service.price,
-        discountPrice: service.discountPrice,
+      price: service.price,
+      discountPrice: service.discountPrice,
 
-        unitLabel: service.unitLabel,
+      unitLabel: service.unitLabel,
+      pricePerUnit:
+        service.unitLabel === "Minutes"
+          ? service.pricePerUnit ?? service.price
+          : service.price,
 
-        // 🔥 important for Minutes service
-        pricePerUnit:
-          service.unitLabel === "Minutes"
-            ? service.pricePerUnit ?? service.discountPrice ?? service.price
-            : service.price,
+      durationUnit: service.durationUnit,
 
-        durationUnit: service.durationUnit,
+      baseDuration: base,
+      minDuration: base, // 🔐 IMPORTANT
 
-        baseDuration: base, // 🔐 DB base duration
-        quantity: 1,
+      quantity: 1,
 
-        includes: service.includes,
-        excludes: service.excludes,
-      });
+      includes: service.includes,
+      excludes: service.excludes,
+    });
+  } else {
+    const item = cart.items[itemIndex];
+
+    if (item.unitLabel === "Minutes") {
+      item.baseDuration += item.durationUnit;
     } else {
-      const item = cart.items[itemIndex];
+      item.quantity += 1;
+    }
+  }
+}
 
-      if (item.unitLabel === "Minutes") {
-        item.baseDuration += item.durationUnit;
+
+// ================= REMOVE =================
+// ================= REMOVE =================
+if (action === "REMOVE") {
+  if (itemIndex === -1) {
+    // nothing to remove
+  } else {
+    const item = cart.items[itemIndex];
+
+    // ⏱️ Minutes-based service
+    if (item.unitLabel === "Minutes") {
+      const min = item.minDuration; // DB se aaya hua
+      const next = item.baseDuration - item.durationUnit;
+
+      // 🔥 REMOVE ITEM if minimum reached
+      if (next < min || next === min) {
+        cart.items.splice(itemIndex, 1);
       } else {
-        item.quantity += 1;
+        item.baseDuration = next;
+      }
+    }
+
+    // 🔢 Quantity-based service
+    else {
+      const nextQty = item.quantity - 1;
+
+      if (nextQty <= 0) {
+        cart.items.splice(itemIndex, 1);
+      } else {
+        item.quantity = nextQty;
       }
     }
   }
+}
 
-  // ================= REMOVE =================
-  if (action === "REMOVE") {
-    if (itemIndex !== -1) {
-      const item = cart.items[itemIndex];
 
-      // ⏱️ Minutes-based service
-      if (item.unitLabel === "Minutes") {
-        const minDuration = service.baseDuration; // 🔥 DB is source of truth
-
-        if (item.baseDuration <= minDuration) {
-          // 🔥 remove service completely
-          cart.items.splice(itemIndex, 1);
-        } else {
-          item.baseDuration -= item.durationUnit;
-        }
-      }
-
-      // 🔢 Quantity-based service
-      else {
-        if (item.quantity <= 1) {
-          cart.items.splice(itemIndex, 1);
-        } else {
-          item.quantity -= 1;
-        }
-      }
-    }
-  }
 
   // 🔒 HARD CLEANUP (for corrupted carts)
   cart.items = cart.items.filter((item: any) => {
