@@ -1,3 +1,4 @@
+// lib/adminAuth.ts
 import jwt from "jsonwebtoken";
 import { cookies } from "next/headers";
 
@@ -20,6 +21,27 @@ export function verifyAdminToken(token: string) {
   }
 }
 
+// ✅ REQUIRED FUNCTION (MISSING)
+export async function requireAdmin() {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(ADMIN_COOKIE)?.value;
+
+    if (!token) return null;
+
+    const decoded: any = verifyAdminToken(token);
+
+    if (!decoded || decoded.role !== "admin") {
+      return null;
+    }
+
+    return decoded; // admin payload
+  } catch (err) {
+    console.error("requireAdmin error:", err);
+    return null;
+  }
+}
+
 // Set admin cookie
 export async function setAdminCookie(token: string) {
   const cookieStore = await cookies();
@@ -28,7 +50,7 @@ export async function setAdminCookie(token: string) {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 7 * 24 * 60 * 60, // 7 days
+    maxAge: 7 * 24 * 60 * 60,
   });
 }
 
