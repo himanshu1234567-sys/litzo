@@ -37,8 +37,8 @@ export async function POST(req: Request) {
     // store kit selection in booking details
     cart.bookingDetails.cleaningKitRequired = enabled;
 
-    // add ₹15 fee if enabled
-    cart.bill.cleaningFee = enabled ? 15 : 0;
+    // add ₹30 fee if enabled
+    cart.bill.cleaningFee = enabled ? 30 : 0;
 
     // recalc totals
     calculateBill(cart);

@@ -94,27 +94,43 @@ export async function POST(req: Request) {
   }
 
   // ================= REMOVE =================
-  if (action === "REMOVE" && itemIndex !== -1) {
-    const item = cart.items[itemIndex];
+// ================= REMOVE =================
+if (action === "REMOVE" && itemIndex !== -1) {
+  const item = cart.items[itemIndex];
 
-    // ⏱️ Duration-based
-    if (item.unitLabel === "Minutes" && item.baseDuration) {
-      const next = item.baseDuration - item.durationUnit;
+  // ⏱️ Minutes-based service
+  if (item.unitLabel === "Minutes") {
+    const dbBaseDuration =
+      typeof service.baseDuration === "number"
+        ? service.baseDuration
+        : null;
 
-      if (next < item.minDuration) {
+    // 🟢 If DB baseDuration exists → strict minimum
+    if (dbBaseDuration !== null && item.baseDuration) {
+      const nextDuration = item.baseDuration - item.durationUnit;
+
+      // 🔥 BELOW DB BASE → REMOVE SERVICE
+      if (nextDuration < dbBaseDuration) {
         cart.items.splice(itemIndex, 1);
       } else {
-        item.baseDuration = next;
+        item.baseDuration = nextDuration;
       }
     }
-    // 🔢 Quantity-based (Dusting INCLUDED)
+    // 🟡 Safety fallback (Minutes but no baseDuration in DB)
     else {
-      item.quantity -= 1;
-      if (item.quantity <= 0) {
-        cart.items.splice(itemIndex, 1);
-      }
+      cart.items.splice(itemIndex, 1);
     }
   }
+
+  // 🔢 Quantity-based service
+  else {
+    item.quantity -= 1;
+    if (item.quantity <= 0) {
+      cart.items.splice(itemIndex, 1);
+    }
+  }
+}
+
 
   // ❌ REMOVE THIS (BIGGEST BUG)
   // ❌ cart.items = cart.items.filter(...)

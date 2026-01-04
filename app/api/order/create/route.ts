@@ -27,13 +27,22 @@ export async function POST(req: Request) {
         { status: 404 }
       );
     }
-
     const order = await Order.create({
       userId: user._id,
       cartId: cart._id,
       items: cart.items,
       bookingDetails: cart.bookingDetails,
       bill: cart.bill,
+
+      // 🔥 THIS IS THE FIX
+      appliedCoupon: cart.couponApplied
+        ? {
+          couponId: cart.appliedCoupon?.couponId,
+          code: cart.appliedCoupon?.code,
+          discountAmount: cart.appliedCoupon?.discountAmount,
+        }
+        : null,
+
       paymentStatus: "PENDING",
       orderStatus: "CREATED",
     });
