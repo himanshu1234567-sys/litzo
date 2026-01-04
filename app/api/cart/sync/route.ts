@@ -28,7 +28,14 @@ export async function POST(req: Request) {
     cart = await Cart.create({
       userId: user._id,
       items: [],
-      bookingDetails: {},
+      bookingDetails: {
+        addressText: "",
+        receiverName: `${user.firstName} ${user.lastName ?? ""}`,
+        receiverPhone: user.phone ?? "",
+        slotDate: "",
+        slotTime: "",
+      },
+
       bill: {
         subTotal: 0,
         gst: 0,
@@ -36,7 +43,7 @@ export async function POST(req: Request) {
         cleaningFee: 0,
         total: 0,
       },
-       couponApplied: false, 
+      couponApplied: false,
       status: "DRAFT",
     });
   }
@@ -94,42 +101,42 @@ export async function POST(req: Request) {
   }
 
   // ================= REMOVE =================
-// ================= REMOVE =================
-if (action === "REMOVE" && itemIndex !== -1) {
-  const item = cart.items[itemIndex];
+  // ================= REMOVE =================
+  if (action === "REMOVE" && itemIndex !== -1) {
+    const item = cart.items[itemIndex];
 
-  // ⏱️ Minutes-based service
-  if (item.unitLabel === "Minutes") {
-    const dbBaseDuration =
-      typeof service.baseDuration === "number"
-        ? service.baseDuration
-        : null;
+    // ⏱️ Minutes-based service
+    if (item.unitLabel === "Minutes") {
+      const dbBaseDuration =
+        typeof service.baseDuration === "number"
+          ? service.baseDuration
+          : null;
 
-    // 🟢 If DB baseDuration exists → strict minimum
-    if (dbBaseDuration !== null && item.baseDuration) {
-      const nextDuration = item.baseDuration - item.durationUnit;
+      // 🟢 If DB baseDuration exists → strict minimum
+      if (dbBaseDuration !== null && item.baseDuration) {
+        const nextDuration = item.baseDuration - item.durationUnit;
 
-      // 🔥 BELOW DB BASE → REMOVE SERVICE
-      if (nextDuration < dbBaseDuration) {
+        // 🔥 BELOW DB BASE → REMOVE SERVICE
+        if (nextDuration < dbBaseDuration) {
+          cart.items.splice(itemIndex, 1);
+        } else {
+          item.baseDuration = nextDuration;
+        }
+      }
+      // 🟡 Safety fallback (Minutes but no baseDuration in DB)
+      else {
         cart.items.splice(itemIndex, 1);
-      } else {
-        item.baseDuration = nextDuration;
       }
     }
-    // 🟡 Safety fallback (Minutes but no baseDuration in DB)
-    else {
-      cart.items.splice(itemIndex, 1);
-    }
-  }
 
-  // 🔢 Quantity-based service
-  else {
-    item.quantity -= 1;
-    if (item.quantity <= 0) {
-      cart.items.splice(itemIndex, 1);
+    // 🔢 Quantity-based service
+    else {
+      item.quantity -= 1;
+      if (item.quantity <= 0) {
+        cart.items.splice(itemIndex, 1);
+      }
     }
   }
-}
 
 
   // ❌ REMOVE THIS (BIGGEST BUG)
