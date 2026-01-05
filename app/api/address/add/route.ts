@@ -22,10 +22,10 @@ export async function POST(req: Request) {
       pincode,
       country = "India",
       havePets = false,
-      homeDetails = null, // ✅ ACCEPT DIRECTLY
+      homeDetails = null,
     } = await req.json();
 
-    if (!addressLine ) {
+    if (!addressLine) {
       return NextResponse.json(
         { error: "Required address fields missing" },
         { status: 400 }
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
       pincode,
       country,
       havePets,
-      homeDetails, // ✅ SAVED HERE
+      homeDetails,
       isDefault: isFirst,
     };
 
@@ -54,8 +54,16 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      address: newAddress,        // ✅ SINGLE ADDRESS RESPONSE
-      addresses: user.addresses,  // optional
+
+      // ✅ USER BASIC INFO
+      user: {
+        email: user.email ?? null,
+        phone: user.phone,
+      },
+
+      // ✅ ADDRESS INFO
+      address: newAddress,
+      addresses: user.addresses, // optional (keep if FE needs list)
     });
   } catch (err) {
     console.error("ADD ADDRESS ERROR:", err);
