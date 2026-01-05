@@ -1,37 +1,69 @@
 import mongoose, { Schema } from "mongoose";
 
+const HomeDetailsSchema = new Schema(
+  {
+    rooms: Number,
+    washrooms: Number,
+    residents: Number,
+    sizeRange: {
+      type: String,
+      enum: [
+        "<500",
+        "500-999",
+        "1000-1999",
+        "2000-2999",
+        "3000-4999",
+        "5000+",
+      ],
+    },
+  },
+  { _id: false }
+);
+
 const AddressSchema = new Schema(
   {
+    label: {
+      type: String,
+      required: true,
+      default: "Home",
+    },
+
     type: {
       type: String,
       enum: ["home", "work", "other"],
       default: "home",
     },
 
-    addressLine: { type: String, required: true }, // full address text
+    addressLine: { type: String, required: true },
+    landmark: String,
     city: { type: String, required: true },
     state: { type: String, required: true },
     pincode: { type: String, required: true },
+    country: { type: String, default: "India" },
 
-    landmark: { type: String },
+    havePets: {
+      type: Boolean,
+      default: false,
+    },
 
-    isDefault: { type: Boolean, default: false },
+    // 🔥 THIS MUST EXIST
+    homeDetails: {
+      type: HomeDetailsSchema,
+      default: null,
+    },
+
+    isDefault: {
+      type: Boolean,
+      default: false,
+    },
   },
-  { _id: true }
+  { timestamps: true }
 );
+
+
 const UserSchema = new Schema({
-  phone: {
-    type: String,
-    required: true,
-    unique: true,
-  },
-
-  email: {
-    type: String,
-    unique: true,
-    sparse: true, // ✅ allow multiple nulls
-  },
-
+  phone: { type: String, required: true, unique: true },
+  email: { type: String, unique: true, sparse: true },
   password: String,
 
   role: {
@@ -58,7 +90,6 @@ const UserSchema = new Schema({
     default: Date.now,
   },
 });
-
 
 export const User =
   mongoose.models.User || mongoose.model("User", UserSchema);

@@ -1,4 +1,3 @@
-// app/api/address/add/route.ts
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
 import { User } from "@/models/User";
@@ -9,10 +8,12 @@ export async function POST(req: Request) {
     await connectDB();
 
     const user = await getUserFromToken(req);
-    if (!user)
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const {
+      label,
       type,
       addressLine,
       landmark,
@@ -20,7 +21,8 @@ export async function POST(req: Request) {
       state,
       pincode,
       country = "India",
-     
+      havePets = false,
+      homeDetails = null, // ✅ ACCEPT DIRECTLY
     } = await req.json();
 
     if (!addressLine || !city || !state || !pincode) {
@@ -30,10 +32,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // first address = default
+    // First address becomes default
     const isFirst = user.addresses.length === 0;
 
-    user.addresses.push({
+    const newAddress = {
+      label,
       type,
       addressLine,
       landmark,
@@ -41,15 +44,18 @@ export async function POST(req: Request) {
       state,
       pincode,
       country,
-    
+      havePets,
+      homeDetails, // ✅ SAVED HERE
       isDefault: isFirst,
-    });
+    };
 
+    user.addresses.push(newAddress);
     await user.save();
 
     return NextResponse.json({
       success: true,
-      addresses: user.addresses,
+      address: newAddress,        // ✅ SINGLE ADDRESS RESPONSE
+      addresses: user.addresses,  // optional
     });
   } catch (err) {
     console.error("ADD ADDRESS ERROR:", err);
