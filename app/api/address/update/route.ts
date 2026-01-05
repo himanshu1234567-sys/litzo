@@ -8,37 +8,67 @@ export async function PUT(req: Request) {
     await connectDB();
 
     const user = await getUserFromToken(req);
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user)
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { addressId, addressLine, city, state, pincode, landmark } = await req.json();
+    const {
+      addressId,
+      addressLine,
+      city,
+      state,
+      pincode,
+      landmark,
+      label,
+      havePets,
+      homeDetails,
+    } = await req.json();
 
-    console.log("Updating address:", addressId);
+    if (!addressId) {
+      return NextResponse.json(
+        { error: "addressId is required" },
+        { status: 400 }
+      );
+    }
+
+    const updateFields: any = {};
+
+    if (addressLine !== undefined)
+      updateFields["addresses.$.addressLine"] = addressLine;
+    if (city !== undefined)
+      updateFields["addresses.$.city"] = city;
+    if (state !== undefined)
+      updateFields["addresses.$.state"] = state;
+    if (pincode !== undefined)
+      updateFields["addresses.$.pincode"] = pincode;
+    if (landmark !== undefined)
+      updateFields["addresses.$.landmark"] = landmark;
+    if (label !== undefined)
+      updateFields["addresses.$.label"] = label;
+    if (havePets !== undefined)
+      updateFields["addresses.$.havePets"] = havePets;
+    if (homeDetails !== undefined)
+      updateFields["addresses.$.homeDetails"] = homeDetails;
 
     const updatedUser = await User.findOneAndUpdate(
       { _id: user._id, "addresses._id": addressId },
-      {
-        $set: {
-          "addresses.$.addressLine": addressLine,
-          "addresses.$.city": city,
-          "addresses.$.state": state,
-          "addresses.$.pincode": pincode,
-          "addresses.$.landmark": landmark,
-        },
-      },
+      { $set: updateFields },
       { new: true }
     );
 
     if (!updatedUser) {
-      return NextResponse.json({ error: "Address NOT updated" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Address not found or not updated" },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json({
       success: true,
       message: "Address updated successfully",
-      addresses: updatedUser.addresses
+      addresses: updatedUser.addresses,
     });
   } catch (err) {
-    console.error("Update Error:", err);
+    console.error("Update Address Error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

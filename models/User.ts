@@ -36,9 +36,9 @@ const AddressSchema = new Schema(
 
     addressLine: { type: String, required: true },
     landmark: String,
-    city: { type: String, required: true },
-    state: { type: String, required: true },
-    pincode: { type: String, required: true },
+    city: { type: String, required: false },
+    state: { type: String, required: false },
+    pincode: { type: String, required: false },
     country: { type: String, default: "India" },
 
     havePets: {
