@@ -25,7 +25,7 @@ export async function POST(req: Request) {
       homeDetails = null, // ✅ ACCEPT DIRECTLY
     } = await req.json();
 
-    if (!addressLine || !city || !state || !pincode) {
+    if (!addressLine ) {
       return NextResponse.json(
         { error: "Required address fields missing" },
         { status: 400 }
