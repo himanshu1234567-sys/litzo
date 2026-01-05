@@ -35,19 +35,33 @@ export async function POST(req: Request) {
     // First address becomes default
     const isFirst = user.addresses.length === 0;
 
-    const newAddress = {
-      label,
-      type,
-      addressLine,
-      landmark,
-      city,
-      state,
-      pincode,
-      country,
-      havePets,
-      homeDetails,
-      isDefault: isFirst,
-    };
+   // sanitize homeDetails
+let sanitizedHomeDetails = homeDetails;
+
+if (homeDetails) {
+  sanitizedHomeDetails = {
+    ...homeDetails,
+    sizeRange:
+      homeDetails.sizeRange && homeDetails.sizeRange.trim() !== ""
+        ? homeDetails.sizeRange
+        : undefined,
+  };
+}
+
+const newAddress = {
+  label,
+  type,
+  addressLine,
+  landmark,
+  city,
+  state,
+  pincode,
+  country,
+  havePets,
+  homeDetails: sanitizedHomeDetails,
+  isDefault: isFirst,
+};
+
 
     user.addresses.push(newAddress);
     await user.save();
