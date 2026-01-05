@@ -9,7 +9,16 @@ export async function POST(req: Request) {
 
     const user = await getUserFromToken(req);
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "UNAUTHORIZED",
+            message: "Unauthorized user",
+          },
+        },
+        { status: 401 }
+      );
     }
 
     const {
@@ -22,12 +31,25 @@ export async function POST(req: Request) {
       pincode,
       country = "India",
       havePets = false,
-      homeDetails = null, // ✅ ACCEPT DIRECTLY
+      homeDetails = null,
     } = await req.json();
 
-    if (!addressLine ) {
+    // 🧠 FIELD LEVEL VALIDATION
+    const errors: Record<string, string> = {};
+
+    if (!addressLine) errors.addressLine = "Address line is required";
+   
+
+    if (Object.keys(errors).length > 0) {
       return NextResponse.json(
-        { error: "Required address fields missing" },
+        {
+          success: false,
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Required address fields missing",
+            fields: errors,
+          },
+        },
         { status: 400 }
       );
     }
@@ -36,8 +58,8 @@ export async function POST(req: Request) {
     const isFirst = user.addresses.length === 0;
 
     const newAddress = {
-      label,
-      type,
+      label: label ?? "Home",
+      type: type ?? "home",
       addressLine,
       landmark,
       city,
@@ -45,7 +67,7 @@ export async function POST(req: Request) {
       pincode,
       country,
       havePets,
-      homeDetails, // ✅ SAVED HERE
+      homeDetails,
       isDefault: isFirst,
     };
 
@@ -54,11 +76,20 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      address: newAddress,        // ✅ SINGLE ADDRESS RESPONSE
-      addresses: user.addresses,  // optional
+      message: "Address added successfully",
+      address: newAddress,
     });
   } catch (err) {
     console.error("ADD ADDRESS ERROR:", err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "SERVER_ERROR",
+          message: "Something went wrong",
+        },
+      },
+      { status: 500 }
+    );
   }
 }
