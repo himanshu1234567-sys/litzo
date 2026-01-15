@@ -56,9 +56,16 @@ export async function POST(req: Request) {
         user = await User.create({
           phone,
           role: "user",
-          isProfileCompleted: false,
+          isProfileCompleted: true, // ✅ force completed
         });
+      } else {
+        // ✅ ensure even existing reviewer user is marked completed
+        if (!user.isProfileCompleted) {
+          user.isProfileCompleted = true;
+          await user.save();
+        }
       }
+
 
       const token = createJWT({
         userId: user._id.toString(),
@@ -68,14 +75,15 @@ export async function POST(req: Request) {
 
       return NextResponse.json({
         success: true,
-        isSignup: 1, // ✅ ALWAYS 1 FOR REVIEWER
+        isSignup: 1,
         token: `Bearer ${token}`,
         user: {
           phone: user.phone,
           role: user.role,
-          isProfileCompleted: user.isProfileCompleted,
+          isProfileCompleted: user.isProfileCompleted, // now always true
         },
       });
+
     }
 
     // ⭐⭐⭐ NORMAL USERS → TWILIO OTP VERIFY
