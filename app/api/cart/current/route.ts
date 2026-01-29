@@ -25,7 +25,7 @@ export async function GET(req: Request) {
         couponApplied: false,
         bookingDetails: {
           addressText: "",
-          receiverName: `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim(),
+          receiverName: `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || "User",
           receiverPhone: user.phone ?? "",
           slotDate: "",
           slotTime: "",
