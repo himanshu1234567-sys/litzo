@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { connectDB } from "@/lib/db";
-import { User } from "@/models/User";
 import { getUserFromToken } from "@/lib/auth";
 
 export async function POST(req: Request) {
@@ -16,15 +15,17 @@ export async function POST(req: Request) {
       label,
       type,
       addressLine,
+      apartmentSector, // ✅ NEW FIELD
       landmark,
       city,
       state,
       pincode,
       country = "India",
-      havePets = false,
+      havePets = "no", // ✅ STRING ENUM
       homeDetails = null,
     } = await req.json();
 
+    // ✅ Basic validation
     if (!addressLine) {
       return NextResponse.json(
         { error: "Required address fields missing" },
@@ -32,36 +33,46 @@ export async function POST(req: Request) {
       );
     }
 
-    // First address becomes default
+    // ✅ Validate havePets
+    const allowedPets = ["dog", "cat", "no"];
+    if (!allowedPets.includes(havePets)) {
+      return NextResponse.json(
+        { error: "Invalid havePets value. Allowed: dog, cat, no" },
+        { status: 400 }
+      );
+    }
+
+    // ✅ First address becomes default
     const isFirst = user.addresses.length === 0;
 
-   // sanitize homeDetails
-let sanitizedHomeDetails = homeDetails;
+    // ✅ Sanitize homeDetails
+    let sanitizedHomeDetails = homeDetails;
 
-if (homeDetails) {
-  sanitizedHomeDetails = {
-    ...homeDetails,
-    sizeRange:
-      homeDetails.sizeRange && homeDetails.sizeRange.trim() !== ""
-        ? homeDetails.sizeRange
-        : undefined,
-  };
-}
+    if (homeDetails) {
+      sanitizedHomeDetails = {
+        ...homeDetails,
+        sizeRange:
+          homeDetails.sizeRange && homeDetails.sizeRange.trim() !== ""
+            ? homeDetails.sizeRange
+            : undefined,
+      };
+    }
 
-const newAddress = {
-  label,
-  type,
-  addressLine,
-  landmark,
-  city,
-  state,
-  pincode,
-  country,
-  havePets,
-  homeDetails: sanitizedHomeDetails,
-  isDefault: isFirst,
-};
-
+    // ✅ New address object
+    const newAddress = {
+      label,
+      type,
+      addressLine,
+      apartmentSector, // ✅ SAVED
+      landmark,
+      city,
+      state,
+      pincode,
+      country,
+      havePets, // ✅ STRING VALUE
+      homeDetails: sanitizedHomeDetails,
+      isDefault: isFirst,
+    };
 
     user.addresses.push(newAddress);
     await user.save();
@@ -77,7 +88,7 @@ const newAddress = {
 
       // ✅ ADDRESS INFO
       address: newAddress,
-      addresses: user.addresses, // optional (keep if FE needs list)
+      addresses: user.addresses,
     });
   } catch (err) {
     console.error("ADD ADDRESS ERROR:", err);

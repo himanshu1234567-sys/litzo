@@ -8,18 +8,20 @@ export async function PUT(req: Request) {
     await connectDB();
 
     const user = await getUserFromToken(req);
-    if (!user)
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     const {
       addressId,
       addressLine,
+      apartmentSector, // ✅ NEW FIELD
       city,
       state,
       pincode,
       landmark,
       label,
-      havePets,
+      havePets, // ✅ string: dog | cat | no
       homeDetails,
     } = await req.json();
 
@@ -30,22 +32,43 @@ export async function PUT(req: Request) {
       );
     }
 
+    // ✅ Validate havePets if provided
+    if (havePets !== undefined) {
+      const allowedPets = ["dog", "cat", "no"];
+      if (!allowedPets.includes(havePets)) {
+        return NextResponse.json(
+          { error: "Invalid havePets value. Allowed: dog, cat, no" },
+          { status: 400 }
+        );
+      }
+    }
+
     const updateFields: any = {};
 
     if (addressLine !== undefined)
       updateFields["addresses.$.addressLine"] = addressLine;
+
+    if (apartmentSector !== undefined)
+      updateFields["addresses.$.apartmentSector"] = apartmentSector;
+
     if (city !== undefined)
       updateFields["addresses.$.city"] = city;
+
     if (state !== undefined)
       updateFields["addresses.$.state"] = state;
+
     if (pincode !== undefined)
       updateFields["addresses.$.pincode"] = pincode;
+
     if (landmark !== undefined)
       updateFields["addresses.$.landmark"] = landmark;
+
     if (label !== undefined)
       updateFields["addresses.$.label"] = label;
+
     if (havePets !== undefined)
       updateFields["addresses.$.havePets"] = havePets;
+
     if (homeDetails !== undefined)
       updateFields["addresses.$.homeDetails"] = homeDetails;
 
@@ -68,7 +91,7 @@ export async function PUT(req: Request) {
       addresses: updatedUser.addresses,
     });
   } catch (err) {
-    console.error("Update Address Error:", err);
+    console.error("UPDATE ADDRESS ERROR:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
