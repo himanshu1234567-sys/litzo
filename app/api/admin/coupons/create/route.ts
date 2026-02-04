@@ -12,7 +12,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Admin only" }, { status: 401 });
     }
 
-    const { code, type, value, minBillAmount, expiryDate } = await req.json();
+    // ✅ READ BODY ONCE
+    const body = await req.json();
+
+    const {
+      code,
+      type,
+      value,
+      expiryDate,
+      minOrderAmount
+    } = body;
 
     if (!code || !type || !value || !expiryDate) {
       return NextResponse.json(
@@ -25,11 +34,15 @@ export async function POST(req: Request) {
       code,
       type,
       value,
-      minBillAmount: minBillAmount || 0,
+      minBillAmount: Number(minOrderAmount ?? 0),
       expiryDate
     });
 
-    return NextResponse.json({ success: true, coupon });
+    // ✅ RESPONSE RETURNS minBillAmount
+    return NextResponse.json({
+      success: true,
+      coupon
+    });
 
   } catch (err: any) {
     console.error("COUPON CREATE ERROR:", err);
