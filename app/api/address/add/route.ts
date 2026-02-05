@@ -12,63 +12,45 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 🛡️ Ensure addresses array exists (CRITICAL FIX)
+    // 🛡️ Ensure addresses array exists
     if (!Array.isArray(user.addresses)) {
       user.addresses = [];
     }
 
-    // 📥 REQUEST BODY
+    // 📥 REQUEST BODY (allow empty / missing fields)
     const body = await req.json();
 
     const {
-      label,
-      type,
-      addressLine,
-      apartmentSector,
-      landmark,
-      city,
-      state,
-      pincode,
+      label = "",
+      type = "",
+      addressLine = "",
+      apartmentSector = "",
+      landmark = "",
+      city = "",
+      state = "",
+      pincode = "",
       country = "India",
       havePets = "no",
       homeDetails = null,
-    } = body;
+    } = body || {};
 
-    // ❌ BASIC VALIDATION
-    if (!addressLine) {
-      return NextResponse.json(
-        { error: "Required address fields missing" },
-        { status: 400 }
-      );
-    }
-
-    // ❌ ENUM VALIDATION
-    const allowedPets = ["dog", "cat", "no"];
-    if (!allowedPets.includes(havePets)) {
-      return NextResponse.json(
-        { error: "Invalid havePets value. Allowed: dog, cat, no" },
-        { status: 400 }
-      );
-    }
-
-    // ⭐ FIRST ADDRESS DEFAULT
-    const isFirst = user.addresses.length === 0;
-
-    // 🧼 SANITIZE homeDetails
+    // 🧼 Sanitize homeDetails safely
     let sanitizedHomeDetails: any = null;
 
     if (homeDetails && typeof homeDetails === "object") {
       sanitizedHomeDetails = {
         ...homeDetails,
         sizeRange:
-          typeof homeDetails.sizeRange === "string" &&
-          homeDetails.sizeRange.trim() !== ""
+          typeof homeDetails.sizeRange === "string"
             ? homeDetails.sizeRange.trim()
             : undefined,
       };
     }
 
-    // 🏠 NEW ADDRESS OBJECT
+    // ⭐ First address default
+    const isFirst = user.addresses.length === 0;
+
+    // 🏠 Address object (no validation)
     const newAddress = {
       label,
       type,
@@ -79,24 +61,22 @@ export async function POST(req: Request) {
       state,
       pincode,
       country,
-      havePets,
+      havePets, // accepts blank or any string
       homeDetails: sanitizedHomeDetails,
       isDefault: isFirst,
     };
 
-    // 💾 SAVE
+    // 💾 Save
     user.addresses.push(newAddress);
-    await user.save(); // must be mongoose document (no .lean())
+    await user.save();
 
-    // ✅ RESPONSE
+    // ✅ Success
     return NextResponse.json({
       success: true,
-
       user: {
         email: user.email ?? null,
         phone: user.phone ?? null,
       },
-
       address: newAddress,
       addresses: user.addresses,
     });
