@@ -17,7 +17,7 @@ export async function POST(req: Request) {
       user.addresses = [];
     }
 
-    // 📥 REQUEST BODY (allow empty / missing fields)
+    // 📥 REQUEST BODY
     const body = await req.json();
 
     const {
@@ -30,27 +30,22 @@ export async function POST(req: Request) {
       state = "",
       pincode = "",
       country = "India",
-      havePets = "no",
-      homeDetails = null,
+      havePets = "",
+      homeDetails = {},
     } = body || {};
 
-    // 🧼 Sanitize homeDetails safely
-    let sanitizedHomeDetails: any = null;
-
-    if (homeDetails && typeof homeDetails === "object") {
-      sanitizedHomeDetails = {
-        ...homeDetails,
-        sizeRange:
-          typeof homeDetails.sizeRange === "string"
-            ? homeDetails.sizeRange.trim()
-            : undefined,
-      };
-    }
+    // 🧼 Sanitize homeDetails (your exact fields)
+    const sanitizedHomeDetails = {
+      rooms: homeDetails?.rooms ?? "",
+      washrooms: homeDetails?.washrooms ?? "",
+      residents: homeDetails?.residents ?? "",
+      sizeRange: homeDetails?.sizeRange ?? "",
+    };
 
     // ⭐ First address default
     const isFirst = user.addresses.length === 0;
 
-    // 🏠 Address object (no validation)
+    // 🏠 New address
     const newAddress = {
       label,
       type,
@@ -61,7 +56,7 @@ export async function POST(req: Request) {
       state,
       pincode,
       country,
-      havePets, // accepts blank or any string
+      havePets,
       homeDetails: sanitizedHomeDetails,
       isDefault: isFirst,
     };
@@ -70,13 +65,9 @@ export async function POST(req: Request) {
     user.addresses.push(newAddress);
     await user.save();
 
-    // ✅ Success
+    // ✅ Response
     return NextResponse.json({
       success: true,
-      user: {
-        email: user.email ?? null,
-        phone: user.phone ?? null,
-      },
       address: newAddress,
       addresses: user.addresses,
     });
