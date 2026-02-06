@@ -6,58 +6,36 @@ export async function POST(req: Request) {
   try {
     await connectDB();
 
-    // 🔐 AUTH
+    // 🔐 AUTH (only this check)
     const user: any = await getUserFromToken(req);
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // 🛡️ Ensure addresses array exists
+    // 🛡️ Safety: ensure array exists
     if (!Array.isArray(user.addresses)) {
       user.addresses = [];
     }
 
-    // 📥 REQUEST BODY
+    // 📥 Read body AS-IS
     const body = await req.json();
-
-    const {
-      label = "",
-      type = "",
-      addressLine = "",
-      apartmentSector = "",
-      landmark = "",
-      city = "",
-      state = "",
-      pincode = "",
-      country = "India",
-      havePets = "",
-      homeDetails = {},
-    } = body || {};
-
-    // 🧼 Sanitize homeDetails (your exact fields)
-    const sanitizedHomeDetails = {
-      rooms: homeDetails?.rooms ?? "",
-      washrooms: homeDetails?.washrooms ?? "",
-      residents: homeDetails?.residents ?? "",
-      sizeRange: homeDetails?.sizeRange ?? "",
-    };
 
     // ⭐ First address default
     const isFirst = user.addresses.length === 0;
 
-    // 🏠 New address
+    // 🏠 Address object (NO validation, NO defaults)
     const newAddress = {
-      label,
-      type,
-      addressLine,
-      apartmentSector,
-      landmark,
-      city,
-      state,
-      pincode,
-      country,
-      havePets,
-      homeDetails: sanitizedHomeDetails,
+      label: body?.label,
+      type: body?.type,
+      addressLine: body?.addressLine,
+      apartmentSector: body?.apartmentSector,
+      landmark: body?.landmark,
+      city: body?.city,
+      state: body?.state,
+      pincode: body?.pincode,
+      country: body?.country,
+      havePets: body?.havePets,
+      homeDetails: body?.homeDetails,
       isDefault: isFirst,
     };
 
@@ -72,7 +50,7 @@ export async function POST(req: Request) {
       addresses: user.addresses,
     });
   } catch (err: any) {
-    console.error("ADD ADDRESS ERROR:", err?.message || err);
+    console.error("ADD ADDRESS ERROR:", err);
     return NextResponse.json(
       { error: "Server error", message: err?.message },
       { status: 500 }
