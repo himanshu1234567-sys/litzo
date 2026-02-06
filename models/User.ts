@@ -2,54 +2,32 @@ import mongoose, { Schema } from "mongoose";
 
 const HomeDetailsSchema = new Schema(
   {
-    rooms: Number,
-    washrooms: Number,
-    residents: Number,
-    sizeRange: {
-      type: String,
-      enum: [
-        "<500",
-        "500-999",
-        "1000-1999",
-        "2000-2999",
-        "3000-4999",
-        "5000+",
-      ],
-    },
+    rooms: Schema.Types.Mixed,
+    washrooms: Schema.Types.Mixed,
+    residents: Schema.Types.Mixed,
+    sizeRange: Schema.Types.Mixed,
   },
   { _id: false }
 );
 
 const AddressSchema = new Schema(
   {
-    label: {
-      type: String,
-      required: true,
-      default: "Home",
-    },
+    label: Schema.Types.Mixed,
+    type: Schema.Types.Mixed,
 
-    type: {
-      type: String,
-      enum: ["home", "work", "other"],
-      default: "home",
-    },
+    addressLine: Schema.Types.Mixed,
+    apartmentSector: Schema.Types.Mixed,
+    landmark: Schema.Types.Mixed,
+    city: Schema.Types.Mixed,
+    state: Schema.Types.Mixed,
+    pincode: Schema.Types.Mixed,
+    country: Schema.Types.Mixed,
 
-    addressLine: { type: String, required: true },
-    landmark: String,
-    city: { type: String, required: false },
-    state: { type: String, required: false },
-    pincode: { type: String, required: false },
-    country: { type: String, default: "India" },
+    havePets: Schema.Types.Mixed,
 
-    havePets: {
-      type: Boolean,
-      default: false,
-    },
-
-    // 🔥 THIS MUST EXIST
     homeDetails: {
       type: HomeDetailsSchema,
-      default: null,
+      default: {},
     },
 
     isDefault: {
@@ -60,7 +38,6 @@ const AddressSchema = new Schema(
   { timestamps: true }
 );
 
-
 const UserSchema = new Schema({
   phone: { type: String, required: true, unique: true },
   email: { type: String, unique: true, sparse: true },
@@ -68,12 +45,12 @@ const UserSchema = new Schema({
 
   role: {
     type: String,
-    enum: ["user", "admin"],
     default: "user",
+    // ❌ enum removed
   },
 
-  firstName: String,
-  lastName: String,
+  firstName: Schema.Types.Mixed,
+  lastName: Schema.Types.Mixed,
 
   addresses: {
     type: [AddressSchema],
